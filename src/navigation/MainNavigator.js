@@ -8,6 +8,9 @@ import AllActivityScreen from '../screens/main/AllActivityScreen';
 import DocumentsScreen from '../screens/main/DocumentsScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import HelpScreen from '../screens/main/HelpScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
+import VerificationResultsScreen from '../screens/main/VerificationResultsScreen';
+import UniversityDashboardScreen from '../screens/main/UniversityDashboardScreen';
 import VerifyIdentityScreen from '../screens/auth/VerifyIdentityScreen';
 
 const Stack = createNativeStackNavigator();
@@ -24,6 +27,9 @@ export default function MainNavigator() {
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="VerificationResults" component={VerificationResultsScreen} />
+      <Stack.Screen name="UniversityDashboard" component={UniversityDashboardScreen} />
     </Stack.Navigator>
   );
 }

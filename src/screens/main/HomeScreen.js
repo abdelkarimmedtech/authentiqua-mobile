@@ -115,9 +115,9 @@ export default function HomeScreen({ navigation }) {
             <MaterialCommunityIcons name="history" size={24} color={activeTab === 'history' ? '#0E6CFF' : '#5B7A9A'} />
             <Text style={[styles.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : '#5B7A9A' }]}>History</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
-            <MaterialCommunityIcons name="account" size={24} color="#5B7A9A" />
-            <Text style={[styles.navLabel, { color: '#5B7A9A' }]}>Profile</Text>
+          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('profile'); navigation.navigate('Profile'); }}>
+            <MaterialCommunityIcons name="account" size={24} color={activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A'} />
+            <Text style={[styles.navLabel, { color: activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A' }]}>Profile</Text>
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.scanButton} onPress={() => { setActiveTab('scan'); navigation.navigate('Scan'); }}>

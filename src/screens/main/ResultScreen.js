@@ -28,7 +28,8 @@ export default function ResultScreen({ route, navigation }) {
         </View>
 
         <View style={styles.actions}>
-          <CustomButton title="Scan another" onPress={() => navigation.replace('Scan')} style={styles.primaryBtn} />
+          <CustomButton title="View Details" onPress={() => navigation.navigate('VerificationResults', { id: 'AUTH-8829-XJ2', status: result.label === 'REAL' ? 'Verified' : 'Rejected', confidence: result.confidence })} style={styles.primaryBtn} />
+          <CustomButton title="Scan another" onPress={() => navigation.replace('Scan')} style={styles.secondaryBtn} textStyle={{ color: colors.text }} />
           <CustomButton title="Home" onPress={() => navigation.navigate('Home')} style={styles.secondaryBtn} textStyle={{ color: colors.text }} />
         </View>
       </View>
