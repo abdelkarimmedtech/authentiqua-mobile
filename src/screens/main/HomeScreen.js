@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
   navItem: { alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 8, flex: 1, minHeight: 50 },
   navLabel: { fontSize: 11, fontWeight: '600', marginTop: 6, height: 14 },
-  scanButton: { position: 'absolute', bottom: 43, alignSelf: 'center', zIndex: 101 },
+  scanButton: { position: 'absolute', bottom: 44, alignSelf: 'center', zIndex: 101 },
   scanIconContainer: { 
     width: 70, 
     height: 70, 

@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
   verified: { backgroundColor: '#173A3C' },
   review: { backgroundColor: '#3D2E18' },
   rejected: { backgroundColor: '#4A1414' }
-});
+})
