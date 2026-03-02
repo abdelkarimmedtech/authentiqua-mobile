@@ -6,7 +6,7 @@ import CustomButton from '../../components/CustomButton';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ResultScreen({ route, navigation }) {
-  const { result } = route.params || { result: { label: 'UNKNOWN', confidence: 0 } };
+  const { result, documentId, meta } = route.params || { result: { label: 'UNKNOWN', confidence: 0 }, documentId: null, meta: null };
 
   const isReal = result.label === 'REAL';
   const iconName = isReal ? 'check-circle' : 'close-circle';
@@ -27,8 +27,29 @@ export default function ResultScreen({ route, navigation }) {
           <Text style={styles.resultConfidence}>{result.confidence}% confidence</Text>
         </View>
 
+        {meta ? (
+          <View style={styles.metaCard}>
+            <Text style={styles.metaTitle}>Scanned document</Text>
+            <Text style={styles.metaRow}>Type: <Text style={styles.metaValue}>{meta.documentType}</Text></Text>
+            <Text style={styles.metaRow}>University: <Text style={styles.metaValue}>{meta.university}</Text></Text>
+            <Text style={styles.metaRow}>File: <Text style={styles.metaValue}>{meta.fileName}</Text></Text>
+            <Text style={styles.metaRow}>Status: <Text style={styles.metaValue}>{meta.status}</Text></Text>
+          </View>
+        ) : null}
+
         <View style={styles.actions}>
-          <CustomButton title="View Details" onPress={() => navigation.navigate('VerificationResults', { id: 'AUTH-8829-XJ2', status: result.label === 'REAL' ? 'Verified' : 'Rejected', confidence: result.confidence })} style={styles.primaryBtn} />
+          <CustomButton
+            title="View Details"
+            onPress={() =>
+              navigation.navigate('VerificationResults', {
+                id: documentId || 'AUTH-XXXX',
+                status: result.label === 'REAL' ? 'Verified' : 'Rejected',
+                confidence: result.confidence,
+                meta: meta || null,
+              })
+            }
+            style={styles.primaryBtn}
+          />
           <CustomButton title="Scan another" onPress={() => navigation.replace('Scan')} style={styles.secondaryBtn} textStyle={{ color: colors.text }} />
           <CustomButton title="Home" onPress={() => navigation.navigate('Home')} style={styles.secondaryBtn} textStyle={{ color: colors.text }} />
         </View>
@@ -46,6 +67,10 @@ const styles = StyleSheet.create({
   resultCard: { marginTop: 32, paddingVertical: 28, paddingHorizontal: 24, borderRadius: 16, borderTopWidth: 3, alignItems: 'center', width: '100%', backgroundColor: '#0A1F3A' },
   resultLabel: { fontSize: 48, fontWeight: '900' },
   resultConfidence: { color: colors.muted, marginTop: 12, fontSize: 14, fontWeight: '600' },
+  metaCard: { width: '100%', backgroundColor: '#0A1F3A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#0E2748', marginTop: 14 },
+  metaTitle: { color: '#E6EEF8', fontSize: 14, fontWeight: '800', marginBottom: 10 },
+  metaRow: { color: '#9AA7C0', fontSize: 12, marginBottom: 6 },
+  metaValue: { color: '#E6EEF8', fontWeight: '700' },
   actions: { width: '100%', marginTop: 32 },
   primaryBtn: { backgroundColor: '#0E6CFF', borderRadius: 12, marginBottom: 12 },
   secondaryBtn: { backgroundColor: '#0A1F3A', borderRadius: 12 }

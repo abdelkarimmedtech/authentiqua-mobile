@@ -1,30 +1,49 @@
-import React from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AuthContext } from '../../context/AuthContext';
+import { getUserDisplayName, getUserRole } from '../../utils/user';
 
 const ACCOUNT_ITEMS = [
-  { icon: 'account-circle-outline', label: 'Account Information',  rightText: null },
-  { icon: 'shield-check-outline',   label: 'Security & Biometrics', rightText: 'Face ID On' },
+  { id: 'account', icon: 'account-circle-outline', label: 'Account Information',  rightText: null },
+  { id: 'security', icon: 'shield-check-outline',   label: 'Security & Biometrics', rightText: 'Face ID On' },
 ];
 
 const PREFERENCE_ITEMS = [
-  { icon: 'bell-outline',            label: 'Notification Settings', rightText: null },
-  { icon: 'theme-light-dark',         label: 'Appearance',            rightText: 'Dark Mode' },
+  { id: 'notifications', icon: 'bell-outline',            label: 'Notification Settings', rightText: null },
+  { id: 'appearance', icon: 'theme-light-dark',         label: 'Appearance',            rightText: 'Dark Mode' },
 ];
 
-const RESOURCE_ITEMS = [
-  { icon: 'help-circle-outline',     label: 'Help & Support',        rightText: null },
-];
+const RESOURCE_ITEMS = [];
 
-function SettingsSection({ title, items }) {
+function SettingsSection({ title, items, navigation }) {
+  const handleItemPress = (itemId) => {
+    switch(itemId) {
+      case 'account':
+        navigation.navigate('AccountInfo');
+        break;
+      case 'security':
+        navigation.navigate('Security');
+        break;
+      case 'notifications':
+        navigation.navigate('Notifications');
+        break;
+      case 'appearance':
+        navigation.navigate('Appearance');
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -36,6 +55,7 @@ function SettingsSection({ title, items }) {
               styles.settingsRow,
               index < items.length - 1 && styles.settingsRowBorder,
             ]}
+            onPress={() => handleItemPress(item.id)}
           >
             <View style={styles.settingsLeft}>
               <View style={styles.settingsIconWrap}>
@@ -58,11 +78,22 @@ function SettingsSection({ title, items }) {
 }
 
 export default function ProfileScreen({ navigation }) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const insets = useSafeAreaInsets();
+  const { user, signOut } = useContext(AuthContext);
+  const displayName = useMemo(() => getUserDisplayName(user), [user]);
+  const role = useMemo(() => getUserRole(user), [user]);
+  const university = user?.profile?.university || '';
+  const email = user?.email || '';
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity style={styles.editBtn}>
           <MaterialCommunityIcons name="pencil-outline" size={16} color="#0E6CFF" />
@@ -82,26 +113,58 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
 
-          <Text style={styles.profileName}>Johnathan Doe</Text>
-          <Text style={styles.profileEmail}>j.doe@university.edu</Text>
+          <Text style={styles.profileName}>{displayName}</Text>
+          <Text style={styles.profileEmail}>{email}</Text>
+          {university ? <Text style={styles.profileUniversity}>{university}</Text> : null}
 
           <View style={styles.premiumBadge}>
             <MaterialCommunityIcons name="star" size={12} color="#0E6CFF" />
-            <Text style={styles.premiumText}>PREMIUM ACCOUNT</Text>
+            <Text style={styles.premiumText}>
+              {role === 'ADMIN' ? 'ADMIN ACCOUNT' : role === 'STAFF' ? 'STAFF ACCOUNT' : 'USER ACCOUNT'}
+            </Text>
           </View>
         </View>
 
-        <SettingsSection title="ACCOUNT"     items={ACCOUNT_ITEMS} />
-        <SettingsSection title="PREFERENCES" items={PREFERENCE_ITEMS} />
-        <SettingsSection title="RESOURCES"   items={RESOURCE_ITEMS} />
+        <SettingsSection title="ACCOUNT"     items={ACCOUNT_ITEMS} navigation={navigation} />
+        <SettingsSection title="PREFERENCES" items={PREFERENCE_ITEMS} navigation={navigation} />
+        <SettingsSection title="RESOURCES"   items={RESOURCE_ITEMS} navigation={navigation} />
 
-        <TouchableOpacity style={styles.logoutBtn}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
           <MaterialCommunityIcons name="logout" size={18} color="#FF4D4D" />
           <Text style={styles.logoutText}>Logout Account</Text>
         </TouchableOpacity>
 
         <Text style={styles.version}>Authentiqua v2.4.1 (Build 620)</Text>
       </ScrollView>
+
+      <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.navRow}>
+          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('dashboard'); navigation.navigate('Home'); }}>
+            <MaterialCommunityIcons name="home" size={24} color={activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A'} />
+            <Text style={[styles.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A' }]}>Dashboard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('documents'); navigation.navigate('Documents'); }}>
+            <MaterialCommunityIcons name="file-document" size={24} color={activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A'} />
+            <Text style={[styles.navLabel, { color: activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A' }]}>Documents</Text>
+          </TouchableOpacity>
+          <View style={{ width: role === 'USER' ? 70 : 0 }} />
+          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('history'); navigation.navigate('AllActivity'); }}>
+            <MaterialCommunityIcons name="history" size={24} color={activeTab === 'history' ? '#0E6CFF' : '#5B7A9A'} />
+            <Text style={[styles.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : '#5B7A9A' }]}>History</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+            <MaterialCommunityIcons name="account" size={24} color="#5B7A9A" />
+            <Text style={[styles.navLabel, { color: '#5B7A9A' }]}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+        {role === 'USER' ? (
+          <TouchableOpacity style={styles.scanButton} onPress={() => { setActiveTab('scan'); navigation.navigate('Scan'); }}>
+            <View style={styles.scanIconContainer}>
+              <MaterialCommunityIcons name="qrcode-scan" size={32} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -109,12 +172,13 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container:         { flex: 1, backgroundColor: '#071027' },
 
-  header:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
+  header:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 },
+  backButton:        { padding: 8 },
   headerTitle:       { color: '#E6EEF8', fontSize: 20, fontWeight: '800' },
   editBtn:           { flexDirection: 'row', alignItems: 'center', gap: 4 },
   editBtnText:       { color: '#0E6CFF', fontSize: 15, fontWeight: '600' },
 
-  scrollContent:     { paddingHorizontal: 20, paddingBottom: 100 },
+  scrollContent:     { paddingHorizontal: 20, paddingBottom: 120 },
 
   profileCard:       { alignItems: 'center', paddingVertical: 28 },
   avatarContainer:   { position: 'relative', marginBottom: 14 },
@@ -122,6 +186,7 @@ const styles = StyleSheet.create({
   verifiedDot:       { position: 'absolute', bottom: 2, right: 2, width: 24, height: 24, borderRadius: 12, backgroundColor: '#0E6CFF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#071027' },
   profileName:       { color: '#E6EEF8', fontSize: 22, fontWeight: '800', marginBottom: 4 },
   profileEmail:      { color: '#9AA7C0', fontSize: 13, marginBottom: 12 },
+  profileUniversity: { color: '#5B7A9A', fontSize: 12, marginBottom: 10, fontWeight: '600' },
   premiumBadge:      { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(14,108,255,0.15)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, gap: 5, borderWidth: 1, borderColor: 'rgba(14,108,255,0.3)' },
   premiumText:       { color: '#0E6CFF', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 
@@ -141,4 +206,44 @@ const styles = StyleSheet.create({
   logoutText:        { color: '#FF4D4D', fontSize: 15, fontWeight: '700' },
 
   version:           { color: '#5B7A9A', fontSize: 12, textAlign: 'center', marginBottom: 10 },
+
+  bottomNav: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    backgroundColor: 'transparent',
+    alignItems: 'flex-end',
+    paddingBottom: 0,
+    zIndex: 100,
+    elevation: 10
+  },
+  navRow: {
+    width: '100%',
+    backgroundColor: '#0F1B2E',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+    borderTopWidth: 1,
+    borderTopColor: '#0E2748'
+  },
+  navItem: { alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 8, flex: 1, minHeight: 50 },
+  navLabel: { fontSize: 11, fontWeight: '600', marginTop: 6, height: 14 },
+  scanButton: { position: 'absolute', bottom: 28, alignSelf: 'center', zIndex: 101 },
+  scanIconContainer: { 
+    width: 70, 
+    height: 70, 
+    borderRadius: 35, 
+    backgroundColor: '#0E6CFF', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    shadowColor: '#0E6CFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 15
+  }
 });

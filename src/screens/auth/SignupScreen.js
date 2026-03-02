@@ -4,6 +4,7 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import colors from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
+import { emailToDisplayName } from '../../utils/user';
 
 export default function SignupScreen({ navigation }) {
   const { signUp } = useContext(AuthContext);
@@ -26,7 +27,8 @@ export default function SignupScreen({ navigation }) {
     if (v) return setError(v);
     setError(null);
     setLoading(true);
-    const res = await signUp(email.trim(), password);
+    const trimmedEmail = email.trim();
+    const res = await signUp(trimmedEmail, password, { fullName: emailToDisplayName(trimmedEmail) });
     setLoading(false);
     if (!res.ok) setError(res.message || 'Failed to sign up');
   };

@@ -1,0 +1,199 @@
+/**
+ * Firestore Security Rules for Authentiqua Mobile App
+ * 
+ * IMPORTANT: Copy this entire content into Firebase Console > Firestore > Rules tab
+ * These rules ensure only authenticated users can access their own data
+ * 
+ * Rules Strategy:
+ * - Only authenticated users can read/write normal data
+ * - System initialization documents (_system) bypass auth for collection creation
+ * - Users can only access their own documents
+ * - Documents can only be created/updated by the owner
+ * - Settings are private per user
+ * - Activity logs are append-only for users
+ * - Admin operations (if needed) should be done via Cloud Functions
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isSystem(docId) {
+      return docId == '_system';
+    }
+    
+    // ==================== USERS COLLECTION ====================
+    match /users/{userId} {
+      // System initialization documents
+      allow read, write: if isSystem(userId);
+      
+      // Users can read their own profile
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can create/update their own profile
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      
+      allow delete: if false; // Users cannot delete their own profiles
+    }
+    
+    // ==================== DOCUMENTS COLLECTION ====================
+    match /documents/{documentId} {
+      // System initialization documents
+      allow read, write: if isSystem(documentId);
+      
+      // Users can read their own documents
+      allow read: if isAuthenticated() && 
+                     isOwner(resource.data.userId);
+      
+      // Users can upload documents (create)
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own documents
+      allow update: if isAuthenticated() &&
+                       resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own documents
+      allow delete: if isAuthenticated() &&
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // ==================== ACTIVITY COLLECTION ====================
+    match /activity/{activityId} {
+      // System initialization documents
+      allow read, write: if isSystem(activityId);
+      
+      // Users can read their own activity logs
+      allow read: if isAuthenticated() && 
+                     isOwner(resource.data.userId);
+      
+      // Users can create activity logs for themselves (append-only)
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Activity logs are immutable (no updates or deletes by users)
+      allow update, delete: if false;
+    }
+    
+    // ==================== SETTINGS COLLECTION ====================
+    match /settings/{userId} {
+      // System initialization documents
+      allow read, write: if isSystem(userId);
+      
+      // Users can read their own settings
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can create/update their own settings
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      
+      // Users can delete their settings (though typically not recommended)
+      allow delete: if false;
+    }
+    
+    // ==================== CATCH-ALL RULE ====================
+    // Deny everything that isn't explicitly allowed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+ * IMPORTANT NOTES:
+ * 
+ * 1. STATUS/ADMIN UPDATES:
+ *    Document status changes (PENDING → VERIFIED/REJECTED) should be done via Cloud Functions
+ *    called by authenticated users, not directly in the client app.
+ * 
+ * 2. COLLECTION INITIALIZATION:
+ *    The app creates _system documents to initialize collections.
+ *    These are filtered out in queries and not shown to users.
+ * 
+ * 3. INDEXING:
+ *    Firestore will automatically create composite indexes as needed.
+ */
+
+    match /activity/{activityId} {
+      // Users can read their own activity logs
+      allow read: if isAuthenticated() && 
+                     isOwner(resource.data.userId) &&
+                     // Limit reads to prevent large queries
+                     request.query.limit <= 100;
+      
+      // Users can create activity logs for themselves (append-only)
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.has('createdAt') &&
+                       request.resource.has('type');
+      
+      // Activity logs are immutable (no updates or deletes by users)
+      allow update, delete: if false;
+    }
+    
+    // ==================== SETTINGS COLLECTION ====================
+    match /settings/{userId} {
+      // Users can read their own settings
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can create their own settings
+      allow create: if isAuthenticated() &&
+                       isOwner(userId) &&
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own settings
+      allow update: if isAuthenticated() &&
+                       isOwner(userId) &&
+                       request.resource.data.userId == resource.data.userId;
+      
+      // Users can delete their settings (though typically not recommended)
+      allow delete: if false; // Prevent accidental deletion
+    }
+    
+    // ==================== CATCH-ALL RULE ====================
+    // Deny everything that isn't explicitly allowed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+ * IMPORTANT NOTES:
+ * 
+ * 1. STATUS/ADMIN UPDATES:
+ *    Document status changes (PENDING → VERIFIED/REJECTED) should be done via Cloud Functions
+ *    called by authenticated users, not directly in the client app.
+ *    This prevents users from changing verification status themselves.
+ * 
+ * 2. STORAGE RULES:
+ *    Add these separate Cloud Storage rules to secure file uploads:
+ *    
+ *    match /users/{userId}/documents/{allPaths=**} {
+ *      allow read: if request.auth.uid == userId;
+ *      allow write: if request.auth.uid == userId && 
+ *                      request.resource.size < 50 * 1024 * 1024 && // 50MB max
+ *                      request.resource.contentType.matches('image/.*|application/pdf');
+ *    }
+ * 
+ * 3. VERIFICATION BACKUPS:
+ *    Consider creating a backup collection for verified documents
+ *    that only admin users can write to (via Cloud Functions).
+ * 
+ * 4. INDEXING:
+ *    Firestore will automatically create composite indexes as needed.
+ *    Check Firebase Console > Firestore > Indexes for any missing indexes.
+ * 
+ * 5. COST OPTIMIZATION:
+ *    - These rules use efficient single-document queries
+ *    - Activity reads are limited to 100 documents max
+ *    - Consider implementing pagination in your app
+ */

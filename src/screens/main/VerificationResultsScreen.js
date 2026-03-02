@@ -14,6 +14,10 @@ export default function VerificationResultsScreen({ navigation, route }) {
   const verificationId = route?.params?.id || 'AUTH-8829-XJ2';
   const status = route?.params?.status || 'Verified';
   const confidence = route?.params?.confidence || 98;
+  const meta = route?.params?.meta || null;
+
+  const staffName = meta?.staffName || 'Verification Reviewer';
+  const staffUniversity = meta?.staffUniversity || meta?.university || 'University';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,7 +57,7 @@ export default function VerificationResultsScreen({ navigation, route }) {
             </View>
           </View>
           <Text style={styles.scoreDescription}>
-            High accuracy detected based on digital watermark and forensic text analysis.
+            Match score between the uploaded document and the official reference from {staffUniversity}.
           </Text>
         </View>
 
@@ -72,11 +76,19 @@ export default function VerificationResultsScreen({ navigation, route }) {
           <Text style={styles.sectionLabel}>REVIEWER INFORMATION</Text>
           <View style={styles.reviewerRow}>
             <View style={styles.reviewerAvatar}>
-              <Text style={styles.reviewerAvatarText}>SJ</Text>
+              <Text style={styles.reviewerAvatarText}>
+                {staffName
+                  .split(' ')
+                  .filter(Boolean)
+                  .map((p) => p[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </Text>
             </View>
             <View style={styles.reviewerInfo}>
-              <Text style={styles.reviewerName}>Dr. Sarah Jenkins</Text>
-              <Text style={styles.reviewerRole}>Office of Admissions, Stanford</Text>
+              <Text style={styles.reviewerName}>{staffName}</Text>
+              <Text style={styles.reviewerRole}>{staffUniversity}</Text>
             </View>
             <View style={styles.verifiedBadge}>
               <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />

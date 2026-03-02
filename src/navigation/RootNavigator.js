@@ -2,12 +2,14 @@ import React, { useContext, useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import OnboardingNavigator from './OnboardingNavigator';
 import { AuthContext } from '../context/AuthContext';
 import colors from '../constants/colors';
 import SplashScreen from '../screens/SplashScreen';
+import { isOnboardingComplete } from '../utils/user';
 
 export default function RootNavigator() {
-  const { userToken, loading } = useContext(AuthContext);
+  const { userToken, loading, user } = useContext(AuthContext);
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -25,5 +27,7 @@ export default function RootNavigator() {
     );
   }
 
-  return userToken ? <MainNavigator /> : <AuthNavigator />;
+  if (!userToken) return <AuthNavigator />;
+  if (!isOnboardingComplete(user)) return <OnboardingNavigator />;
+  return <MainNavigator />;
 }

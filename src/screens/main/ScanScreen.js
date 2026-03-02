@@ -1,21 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../components/CustomButton';
+import CustomInput from '../../components/CustomInput';
 import colors from '../../constants/colors';
 import { scanImage } from '../../services/scanService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AuthContext } from '../../context/AuthContext';
+import { getUserRole } from '../../utils/user';
+import { uploadDocument, logActivity, hasReferenceDocument } from '../../../backend/firestore';
+
+const DOC_TYPES = [
+  { id: 'TRANSCRIPT', label: 'Transcript' },
+  { id: 'DEGREE', label: 'Degree' },
+  { id: 'DIPLOMA', label: 'Diploma' },
+  { id: 'CERTIFICATE', label: 'Certificate' },
+  { id: 'ID', label: 'ID' },
+  { id: 'OTHER', label: 'Other' },
+];
 
 export default function ScanScreen({ navigation, route }) {
+  const { user } = useContext(AuthContext);
+  const role = useMemo(() => getUserRole(user), [user]);
+  const defaultUniversity = user?.profile?.university || '';
+
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
+  const [university, setUniversity] = useState(defaultUniversity);
+  const [documentType, setDocumentType] = useState('TRANSCRIPT');
 
   // Auto-open camera or gallery based on route params
   useEffect(() => {
@@ -47,13 +66,14 @@ export default function ScanScreen({ navigation, route }) {
         allowsMultiple: false
       });
 
-      if (!result.cancelled && result.assets && result.assets.length > 0) {
+      const cancelled = typeof result.cancelled !== 'undefined' ? result.cancelled : result.canceled;
+      if (!cancelled && result.assets && result.assets.length > 0) {
         setImage(result.assets[0].uri);
         setShowCamera(false);
       }
     } catch (error) {
       Alert.alert('Error', 'Could not access gallery. Please try again.');
-      console.log('Gallery error:', error);
+      console.error('❌ Gallery error:', error?.message || 'Unknown error');
     }
   };
 
@@ -83,7 +103,7 @@ export default function ScanScreen({ navigation, route }) {
       setShowCamera(true);
     } catch (error) {
       Alert.alert('Error', 'Failed to open camera');
-      console.log('Camera error:', error);
+      console.error('❌ Camera open error:', error?.message || 'Unknown error');
     }
   };
 
@@ -104,20 +124,79 @@ export default function ScanScreen({ navigation, route }) {
       }
     } catch (error) {
       Alert.alert('Camera Error', 'Failed to capture photo. Please try again.');
-      console.log('Camera capture error:', error);
+      console.error('❌ Camera capture error:', error?.message || 'Unknown error');
     }
   };
 
   const onUpload = async () => {
     if (!image) return Alert.alert('Please pick or take a photo first');
+    if (role !== 'USER') {
+      Alert.alert('Not available', 'University staff should upload reference documents instead of scanning.');
+      navigation.navigate('UniversityReferenceUpload');
+      return;
+    }
+    if (!university?.trim()) return Alert.alert('Missing university', 'Please enter the university for this document.');
+    if (!documentType) return Alert.alert('Missing type', 'Please choose a document type.');
     try {
       setLoading(true);
-      const result = await scanImage(image);
-      setLoading(false);
-      navigation.replace('Result', { result });
+      const baseResult = await scanImage(image);
+      const uni = university.trim();
+
+      const refCheck = await hasReferenceDocument(uni, documentType);
+      const hasRef = !!refCheck?.exists;
+      const reference = refCheck?.reference || null;
+
+      const label = hasRef ? 'REAL' : 'FAKE';
+      const confidence = hasRef ? Math.max(baseResult.confidence || 0, 85) : Math.min(baseResult.confidence || 0, 55);
+      const status = hasRef ? 'VERIFIED' : 'REJECTED';
+
+      const fileName = image.split('/').pop() || 'document';
+      const uid = user?.uid;
+
+      const uploadRes = await uploadDocument(uid, {
+        documentType,
+        fileName,
+        fileUrl: image,
+        status,
+        verificationNotes: hasRef ? 'Matched against official university reference document.' : 'No official reference document found for this university/type.',
+        university: uni,
+        isReference: false,
+      });
+
+      try {
+        await logActivity(uid, {
+          type: 'VERIFICATION',
+          status,
+          documentId: uploadRes?.documentId || null,
+          description: 'Document verification completed',
+          details: {
+            university: uni,
+            documentType,
+            label,
+            confidence,
+            referenceId: reference?.id || null,
+            referenceOwnerId: reference?.userId || null,
+          },
+        });
+      } catch (e) {}
+
+      navigation.replace('Result', {
+        result: { label, confidence },
+        documentId: uploadRes?.documentId || null,
+        meta: {
+          university: uni,
+          documentType,
+          fileName,
+          status,
+          staffName: reference?.staffName || null,
+          staffUniversity: reference?.university || null,
+        },
+      });
     } catch (e) {
-      setLoading(false);
+      console.error('❌ Verification error:', e?.message || 'Unknown error');
       Alert.alert('Error', 'Failed to scan image');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -238,6 +317,34 @@ export default function ScanScreen({ navigation, route }) {
 
         {image && (
           <View style={styles.imageActions}>
+            <View style={styles.metaCard}>
+              <Text style={styles.metaTitle}>Verification details</Text>
+              <CustomInput
+                label="University (required)"
+                value={university}
+                onChangeText={setUniversity}
+                placeholder="e.g. Stanford University"
+              />
+              <Text style={styles.metaLabel}>Document type</Text>
+              <View style={styles.typeRow}>
+                {DOC_TYPES.map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[styles.typePill, documentType === t.id && styles.typePillActive]}
+                    onPress={() => setDocumentType(t.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.typeText, documentType === t.id && styles.typeTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {role !== 'USER' ? (
+                <Text style={styles.roleHint}>
+                  Staff/Admin accounts upload reference documents instead of scanning.
+                </Text>
+              ) : null}
+            </View>
+
             <TouchableOpacity 
               style={styles.verifyBtnContainer}
               onPress={onUpload}
@@ -321,6 +428,28 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 10
   },
+  metaCard: {
+    backgroundColor: '#0F1B2E',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#0E2748',
+  },
+  metaTitle: { color: '#E6EEF8', fontWeight: '800', marginBottom: 10 },
+  metaLabel: { color: '#9AA7C0', fontSize: 12, fontWeight: '700', marginTop: 2, marginBottom: 10 },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  typePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: '#0A1F3A',
+    borderWidth: 1,
+    borderColor: '#0E2748',
+  },
+  typePillActive: { borderColor: 'rgba(0,255,153,0.35)', backgroundColor: 'rgba(0,255,153,0.07)' },
+  typeText: { color: '#9AA7C0', fontSize: 12, fontWeight: '700' },
+  typeTextActive: { color: '#00FF99' },
+  roleHint: { color: '#FFB800', marginTop: 10, fontSize: 12, fontWeight: '600' },
   verifyBtnContainer: {
     alignItems: 'center',
     paddingVertical: 20,

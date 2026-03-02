@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../../constants/colors';
@@ -6,18 +6,47 @@ import { AuthContext } from '../../context/AuthContext';
 import CustomButton from '../../components/CustomButton';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { onUserDocumentsChange } from '../../../backend/firestore';
+import { getUserDisplayName, getUserRole } from '../../utils/user';
 
-const RECENT = [
-  { id: '1', title: "Bachelor's Degree", subtitle: 'Stanford University', status: 'VERIFIED' },
-  { id: '2', title: 'Transcript 2023', subtitle: 'MIT University', status: 'IN REVIEW' },
-  { id: '3', title: 'Identity Card', subtitle: 'Gov Registry', status: 'REJECTED' }
-];
+function formatType(t) {
+  if (!t) return 'Document';
+  return String(t).replace(/_/g, ' ');
+}
 
 export default function HomeScreen({ navigation }) {
-  const { signOut } = useContext(AuthContext);
+  const { signOut, user } = useContext(AuthContext);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const insets = useSafeAreaInsets();
+  const role = useMemo(() => getUserRole(user), [user]);
+  const displayName = useMemo(() => getUserDisplayName(user), [user]);
+  const [documents, setDocuments] = useState([]);
+
+  useEffect(() => {
+    if (role && role !== 'USER') {
+      navigation.replace('UniversityDashboard');
+    }
+  }, [role, navigation]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onUserDocumentsChange(user.uid, (res) => {
+      const docs = (res?.documents || []).filter((d) => !d.isReference);
+      setDocuments(docs);
+    });
+    return () => unsub?.();
+  }, [user?.uid]);
+
+  const totalUploaded = documents.length;
+  const verifiedCount = documents.filter((d) => d.status === 'VERIFIED').length;
+  const pendingCount = documents.filter((d) => d.status === 'PENDING').length;
+  const recent = documents.slice(0, 3).map((d) => ({
+    id: d.id,
+    title: formatType(d.documentType),
+    subtitle: d.university || '',
+    status: d.status,
+  }));
 
   const handleSignOut = () => {
     setDrawerVisible(false);
@@ -25,7 +54,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const renderRecent = ({ item }) => {
-    const iconName = item.status === 'VERIFIED' ? 'check-circle' : item.status === 'IN REVIEW' ? 'clock-outline' : 'close-circle';
+    const iconName = item.status === 'VERIFIED' ? 'check-circle' : item.status === 'PENDING' ? 'clock-outline' : 'close-circle';
     return (
       <View style={styles.recentItem}>
         <View style={styles.recentLeft}>
@@ -37,7 +66,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.recentSub}>{item.subtitle}</Text>
           </View>
         </View>
-        <View style={[styles.statusPill, item.status === 'VERIFIED' ? styles.verified : item.status === 'IN REVIEW' ? styles.review : styles.rejected]}>
+        <View style={[styles.statusPill, item.status === 'VERIFIED' ? styles.verified : item.status === 'PENDING' ? styles.review : styles.rejected]}>
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
       </View>
@@ -50,27 +79,39 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcome}>WELCOME BACK</Text>
-            <Text style={styles.name}>Hadile</Text>
+            <Text style={styles.name}>{displayName}</Text>
           </View>
           <TouchableOpacity onPress={() => setDrawerVisible(true)} style={styles.menuButton}>
-            <MaterialCommunityIcons name="dots-vertical" size={28} color="#E6EEF8" />
+            <MaterialCommunityIcons name="menu" size={28} color="#E6EEF8" />
           </TouchableOpacity>
         </View>
 
       <View style={styles.topRow}>
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>Total Uploaded</Text>
-          <Text style={styles.totalCount}>12</Text>
+          <Text style={styles.totalCount}>{totalUploaded}</Text>
         </View>
         <View style={styles.smallCards}>
-          <View style={styles.smallCard}><Text style={styles.smallCount}>08</Text><Text style={styles.smallLabel}>VERIFIED</Text></View>
-          <View style={styles.smallCard}><Text style={styles.smallCount}>04</Text><Text style={styles.smallLabel}>PENDING</Text></View>
+          <View style={styles.smallCard}><Text style={styles.smallCount}>{String(verifiedCount).padStart(2, '0')}</Text><Text style={styles.smallLabel}>VERIFIED</Text></View>
+          <View style={styles.smallCard}><Text style={styles.smallCount}>{String(pendingCount).padStart(2, '0')}</Text><Text style={styles.smallLabel}>PENDING</Text></View>
         </View>
       </View>
 
       <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent Activity</Text><TouchableOpacity onPress={() => navigation.navigate('AllActivity')}><Text style={styles.seeAll}>See All</Text></TouchableOpacity></View>
 
-      <FlatList data={RECENT} keyExtractor={r => r.id} renderItem={renderRecent} style={{ marginTop: 8 }} scrollEnabled={false} />
+      <FlatList
+        data={recent}
+        keyExtractor={(r) => r.id}
+        renderItem={renderRecent}
+        style={{ marginTop: 8 }}
+        scrollEnabled={false}
+        ListEmptyComponent={
+          <View style={styles.emptyRecent}>
+            <Text style={styles.emptyRecentTitle}>No activity yet</Text>
+            <Text style={styles.emptyRecentSub}>Scan and verify a document to see it here.</Text>
+          </View>
+        }
+      />
 
       <View style={styles.footerActions}>
         <CustomButton title="Upload PDF/Image" onPress={() => navigation.navigate('Scan', { galleryOnly: true })} style={styles.primaryAction} />
@@ -153,6 +194,9 @@ const styles = StyleSheet.create({
   docIcon: { width: 48, height: 48, backgroundColor: '#0E2748', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   recentTitle: { color: '#E6EEF8', fontWeight: '700' },
   recentSub: { color: '#9AA7C0', marginTop: 4, fontSize: 12 },
+  emptyRecent: { backgroundColor: '#0A1F3A', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#0E2748' },
+  emptyRecentTitle: { color: '#E6EEF8', fontWeight: '800', fontSize: 14 },
+  emptyRecentSub: { color: '#9AA7C0', marginTop: 6, fontSize: 12, lineHeight: 18 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
   statusText: { color: '#fff', fontWeight: '700', fontSize: 11 },
   verified: { backgroundColor: '#173A3C' },

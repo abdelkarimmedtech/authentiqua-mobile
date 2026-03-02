@@ -1,0 +1,115 @@
+/**
+ * Cloud Storage Security Rules for Authentiqua Mobile App
+ * 
+ * IMPORTANT: Copy this entire content into Firebase Console > Storage > Rules tab
+ * These rules secure uploaded documents and profile images
+ */
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isValidFile() {
+      // Only allow images and PDF files
+      return request.resource.contentType in [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf'
+      ];
+    }
+    
+    function isFileSizeValid() {
+      // Max 50MB per file
+      return request.resource.size <= 50 * 1024 * 1024;
+    }
+    
+    // ==================== USER DOCUMENTS ====================
+    match /users/{userId}/documents/{document=**} {
+      // Users can read their own documents
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can upload documents to their folder
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidFile() &&
+                      isFileSizeValid();
+      
+      // Users can delete their own documents
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ==================== PROFILE IMAGES ====================
+    match /users/{userId}/profile/{allPaths=**} {
+      // Users can read their own profile images
+      allow read: if isAuthenticated();
+      
+      // Users can write to their profile folder
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidFile() &&
+                      request.resource.size <= 5 * 1024 * 1024; // 5MB max for profile images
+      
+      // Users can delete their profile images
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ==================== TEMPORARY UPLOADS ====================
+    match /temp/{userId}/{document=**} {
+      // Users can write to temp folder for upload preview
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidFile() &&
+                      isFileSizeValid();
+      
+      // Users can read temp files
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Users can delete temp files
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ==================== CATCH-ALL RULE ====================
+    // Deny everything that isn't explicitly allowed
+    match /{allPaths=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}
+
+/*
+ * IMPORTANT NOTES:
+ * 
+ * 1. FILE CLEANUP:
+ *    Consider setting up a Cloud Function to delete files older than 30 days
+ *    from the /temp folder to save storage costs.
+ * 
+ * 2. MAX FILE SIZES:
+ *    - Documents: 50MB
+ *    - Profile images: 5MB
+ *    - Adjust as needed based on your app's requirements
+ * 
+ * 3. ALLOWED FILE TYPES:
+ *    Currently allow: JPEG, PNG, GIF, WebP, PDF
+ *    Add/remove types as needed in isValidFile() function
+ * 
+ * 4. PERFORMANCE:
+ *    - Use CDN caching for profile images
+ *    - Consider compressing images on client before upload
+ *    - Use resumable uploads for large documents
+ * 
+ * 5. MONITORING:
+ *    Monitor Storage usage in Firebase Console > Storage > Files
+ *    Set storage quotas if needed
+ */

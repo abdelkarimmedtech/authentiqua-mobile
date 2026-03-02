@@ -29,7 +29,7 @@ export default function CameraScreen({ navigation }) {
         const uri = result.uri ?? (result.assets && result.assets[0] && result.assets[0].uri);
         setPhoto(uri);
       } catch (e) {
-        console.warn(e);
+        console.error('❌ Camera error:', e?.message || 'Unknown error');
       } finally {
         setLoading(false);
       }
