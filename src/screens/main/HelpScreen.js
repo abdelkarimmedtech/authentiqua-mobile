@@ -101,11 +101,11 @@ export default function HelpScreen({ navigation }) {
           scrollEnabled={true}
         />
 
-        <View style={styles.contactCard}>
+        <View style={dynamicStyles(colors).contactCard}>
           <MaterialCommunityIcons name="email-outline" size={24} color="#0E6CFF" />
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.contactLabel}>Still need help?</Text>
-            <Text style={styles.contactEmail}>support@authentiqua.com</Text>
+            <Text style={dynamicStyles(colors).contactLabel}>Still need help?</Text>
+            <Text style={dynamicStyles(colors).contactEmail}>support@authentiqua.com</Text>
           </View>
         </View>
       </View>
@@ -207,7 +207,7 @@ const dynamicStyles = (colors) => StyleSheet.create({
     marginBottom: 16,
   },
   contactLabel: {
-    color: '#E6EEF8',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -217,4 +217,4 @@ const dynamicStyles = (colors) => StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-const styles = { safeArea: {}, container: {}, header: {}, backBtn: {}, headerTitle: {}, helpIntro: {}, helpTitle: {}, helpSubtitle: {}, listContent: {}, faqCard: {}, faqHeader: {}, faqLeft: {}, faqCategory: {}, faqQuestion: {}, faqContent: {}, faqAnswer: {}, contactCard: {}
+});
