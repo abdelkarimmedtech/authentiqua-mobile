@@ -3,7 +3,6 @@ import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase Configuration from environment variables only (no hard-coded fallbacks)
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -21,18 +20,18 @@ if (missing.length) {
   throw new Error('Firebase configuration missing env vars');
 }
 
-// Initialize Firebase
+
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with AsyncStorage persistence (React Native)
+
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
 
-// Initialize Firestore (without local cache for React Native compatibility)
+
 const db = getFirestore(app);
 
-// Keep a single non-sensitive success log
+
 console.log('✅ Firebase Connected Successfully');
 
 export { auth, db, app };

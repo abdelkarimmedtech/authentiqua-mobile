@@ -1,21 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 
 export default function AppearanceScreen({ navigation }) {
-  const [theme, setTheme] = useState('dark');
+  const { theme, setTheme } = useContext(ThemeContext);
+  const [loading, setLoading] = useState(false);
+  const colors = getThemeColors(theme);
+
+  const handleThemeChange = async (mode) => {
+    setLoading(true);
+    try {
+      await AsyncStorage.setItem('selectedTheme', mode);
+      setTheme(mode);
+    } catch (error) {
+      console.error('Error saving theme:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const ThemeOption = ({ mode, label, description, icon }) => (
     <TouchableOpacity
-      style={[styles.themeOption, theme === mode && styles.themeOptionActive]}
-      onPress={() => setTheme(mode)}
+      style={[
+        styles.themeOption,
+        { backgroundColor: colors.optionBg, borderColor: colors.border },
+        theme === mode && styles.themeOptionActive
+      ]}
+      onPress={() => handleThemeChange(mode)}
+      disabled={loading}
+      activeOpacity={0.7}
     >
       <View style={styles.themeOptionContent}>
-        <MaterialCommunityIcons name={icon} size={32} color={theme === mode ? '#0E6CFF' : '#5B7A9A'} />
+        <MaterialCommunityIcons
+          name={icon}
+          size={32}
+          color={theme === mode ? '#0E6CFF' : colors.icon}
+        />
         <View style={styles.themeInfo}>
-          <Text style={styles.themeLabel}>{label}</Text>
-          <Text style={styles.themeDesc}>{description}</Text>
+          <Text style={[styles.themeLabel, { color: colors.text }]}>{label}</Text>
+          <Text style={[styles.themeDesc, { color: colors.textSecondary }]}>
+            {description}
+          </Text>
         </View>
       </View>
       {theme === mode && (
@@ -25,18 +54,21 @@ export default function AppearanceScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+      <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Appearance</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Appearance</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.bg }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>THEME</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THEME</Text>
           <ThemeOption
             mode="dark"
             label="Dark Mode"
@@ -52,12 +84,16 @@ export default function AppearanceScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DISPLAY</Text>
-          <View style={styles.card}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DISPLAY</Text>
+          <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
             <View style={styles.settingRow}>
               <View>
-                <Text style={styles.settingLabel}>Always Show Status</Text>
-                <Text style={styles.settingDesc}>Display verification status prominently</Text>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                  Always Show Status
+                </Text>
+                <Text style={[styles.settingDesc, { color: colors.textSecondary }]}>
+                  Display verification status prominently
+                </Text>
               </View>
               <MaterialCommunityIcons name="check" size={20} color="#0E6CFF" />
             </View>
@@ -71,27 +107,24 @@ export default function AppearanceScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
+  safeArea: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#0F1B2E',
-    borderBottomWidth: 1,
-    borderBottomColor: '#0E2748'
+    borderBottomWidth: 1
   },
   backButton: { padding: 8 },
-  title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
-  container: { flex: 1, padding: 16, backgroundColor: '#071027' },
+  title: { fontSize: 18, fontWeight: '800' },
+  container: { flex: 1, padding: 16 },
   section: { marginTop: 24 },
-  sectionTitle: { color: '#5B7A9A', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12 },
+  sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12 },
   themeOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0A1F3A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -101,20 +134,14 @@ const styles = StyleSheet.create({
   themeOptionActive: { borderColor: '#0E6CFF' },
   themeOptionContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   themeInfo: { marginLeft: 16 },
-  themeLabel: { color: '#E6EEF8', fontSize: 14, fontWeight: '700' },
-  themeDesc: { color: '#9AA7C0', fontSize: 12, marginTop: 4 },
-  card: {
-    backgroundColor: '#0A1F3A',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#0E2748'
-  },
+  themeLabel: { fontSize: 14, fontWeight: '700' },
+  themeDesc: { fontSize: 12, marginTop: 4 },
+  card: { borderRadius: 12, padding: 16, borderWidth: 1 },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  settingLabel: { color: '#E6EEF8', fontSize: 14, fontWeight: '700' },
-  settingDesc: { color: '#9AA7C0', fontSize: 12, marginTop: 4 }
+  settingLabel: { fontSize: 14, fontWeight: '700' },
+  settingDesc: { fontSize: 12, marginTop: 4 }
 });
