@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import CustomButton from '../../components/CustomButton';
 
 const UNIVERSITIES = [
@@ -12,6 +13,8 @@ const UNIVERSITIES = [
 ];
 
 export default function VerifyIdentityScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState('2');
 
@@ -34,22 +37,22 @@ export default function VerifyIdentityScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.headerTitle}>Verify Identity</Text>
-        <View style={styles.stepsRow}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Verify Identity</Text>
+        <View style={[styles.stepsRow, { backgroundColor: colors.bg }]}>
           <View style={[styles.stepDot, styles.stepActive]}><Text style={styles.stepNum}>1</Text></View>
-          <View style={styles.stepLine} />
-          <View style={styles.stepDot}><Text style={styles.stepNumMuted}>2</Text></View>
-          <View style={styles.stepLine} />
-          <View style={styles.stepDot}><Text style={styles.stepNumMuted}>3</Text></View>
+          <View style={[styles.stepLine, { backgroundColor: colors.border }]} />
+          <View style={[styles.stepDot, { backgroundColor: colors.optionBg }]}><Text style={styles.stepNumMuted}>2</Text></View>
+          <View style={[styles.stepLine, { backgroundColor: colors.border }]} />
+          <View style={[styles.stepDot, { backgroundColor: colors.optionBg }]}><Text style={styles.stepNumMuted}>3</Text></View>
         </View>
 
-        <Text style={styles.title}>University</Text>
-        <Text style={styles.subtitle}>Select your institution to proceed with the document verification process.</Text>
+        <Text style={[styles.title, { color: colors.text }]}>University</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Select your institution to proceed with the document verification process.</Text>
 
-        <View style={styles.searchBox}>
-          <TextInput placeholder="Search university name..." placeholderTextColor="#4B5B72" value={query} onChangeText={setQuery} style={{ color: colors.text }} />
+        <View style={[styles.searchBox, { backgroundColor: colors.optionBg }]}>
+          <TextInput placeholder="Search university name..." placeholderTextColor={colors.textSecondary} value={query} onChangeText={setQuery} style={{ color: colors.text }} />
         </View>
 
         <FlatList data={filtered} keyExtractor={i => i.id} renderItem={renderItem} style={{ marginTop: 12 }} />
@@ -64,24 +67,24 @@ export default function VerifyIdentityScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  container: { flex: 1, padding: 20, backgroundColor: '#071027' },
-  headerTitle: { color: colors.text, fontWeight: '800', fontSize: 18, alignSelf: 'center', marginTop: 6 },
+  safeArea: { flex: 1 },
+  container: { flex: 1, padding: 20 },
+  headerTitle: { fontWeight: '800', fontSize: 18, alignSelf: 'center', marginTop: 6 },
   stepsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  stepDot: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#0A2238', alignItems: 'center', justifyContent: 'center' },
+  stepDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   stepActive: { backgroundColor: '#163A6B' },
   stepNum: { color: '#fff', fontWeight: '800' },
   stepNumMuted: { color: '#5E6D7E' },
-  stepLine: { width: 28, height: 2, backgroundColor: '#0A2238', marginHorizontal: 8 },
-  title: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 18 },
-  subtitle: { color: colors.muted, marginTop: 8 },
-  searchBox: { marginTop: 14, backgroundColor: '#0A2238', padding: 12, borderRadius: 10 },
-  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#051026', padding: 12, borderRadius: 10, marginTop: 10 },
+  stepLine: { width: 28, height: 2, marginHorizontal: 8 },
+  title: { fontSize: 22, fontWeight: '800', marginTop: 18 },
+  subtitle: { marginTop: 8 },
+  searchBox: { marginTop: 14, padding: 12, borderRadius: 10 },
+  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 10 },
   cardSelected: { borderColor: '#0E6CFF', borderWidth: 1.5 },
   cardLeft: { flexDirection: 'row', alignItems: 'center' },
-  logoPlaceholder: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#0E2748' },
-  cardTitle: { color: colors.text, fontWeight: '700' },
-  cardSub: { color: colors.muted, marginTop: 4, fontSize: 12 },
+  logoPlaceholder: { width: 44, height: 44, borderRadius: 8 },
+  cardTitle: { fontWeight: '700' },
+  cardSub: { marginTop: 4, fontSize: 12 },
   selectedBadge: { backgroundColor: '#0E6CFF', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12 },
   selectedText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   actions: { marginTop: 18 },

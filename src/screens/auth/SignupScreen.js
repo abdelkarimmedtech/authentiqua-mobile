@@ -2,11 +2,14 @@ import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { AuthContext } from '../../context/AuthContext';
 import { emailToDisplayName } from '../../utils/user';
 
 export default function SignupScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const { signUp } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,15 +37,15 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.container, { backgroundColor: colors.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.inner}>
-        <Text style={styles.title}>Create account</Text>
+        <Text style={[styles.title, { color: '#00FF99' }]}>Create account</Text>
 
         <CustomInput label="Email" value={email} onChangeText={setEmail} placeholder="you@company.com" />
         <CustomInput label="Password" value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry />
         <CustomInput label="Confirm" value={confirm} onChangeText={setConfirm} placeholder="••••••" secureTextEntry />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={[styles.error]}>{error}</Text> : null}
 
         <CustomButton title={loading ? 'Creating...' : 'Sign Up'} onPress={onSubmit} disabled={loading} style={{ marginTop: 8 }} />
 
@@ -52,8 +55,8 @@ export default function SignupScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.darkBg },
+  container: { flex: 1 },
   inner: { padding: 24, flex: 1, justifyContent: 'center' },
-  title: { color: colors.accent, fontSize: 28, fontWeight: '800', marginBottom: 14 },
+  title: { fontSize: 28, fontWeight: '800', marginBottom: 14 },
   error: { color: '#FF6B6B', marginTop: 8 }
 });

@@ -2,7 +2,8 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { AuthContext } from '../../context/AuthContext';
 import { onUserActivityChange } from '../../../backend/firestore';
 import { getUserRole } from '../../utils/user';
@@ -13,6 +14,8 @@ function formatType(t) {
 }
 
 export default function AllActivityScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [activeTab, setActiveTab] = useState('history');
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
@@ -59,12 +62,12 @@ export default function AllActivityScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={dynamicStyles(colors).safeArea}>
+      <View style={dynamicStyles(colors).header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles(colors).backButton}>
+          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>History</Text>
+        <Text style={dynamicStyles(colors).title}>History</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -72,15 +75,15 @@ export default function AllActivityScreen({ navigation }) {
         data={activities}
         keyExtractor={(item) => item.id}
         renderItem={renderActivity}
-        style={styles.list}
-        contentContainerStyle={activities.length === 0 ? styles.emptyContainer : styles.listContent}
+        style={dynamicStyles(colors).list}
+        contentContainerStyle={activities.length === 0 ? dynamicStyles(colors).emptyContainer : dynamicStyles(colors).listContent}
         scrollEnabled={true}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="history" size={52} color="#5B7A9A" />
-            <Text style={styles.emptyTitle}>No activity yet</Text>
-            <Text style={styles.emptySub}>
+          <View style={dynamicStyles(colors).emptyState}>
+            <MaterialCommunityIcons name="history" size={52} color={colors.icon} />
+            <Text style={dynamicStyles(colors).emptyTitle}>No activity yet</Text>
+            <Text style={dynamicStyles(colors).emptySub}>
               {role === 'USER'
                 ? 'Scan and verify a document to see your verification history.'
                 : 'Upload a reference document to see your activity here.'}
@@ -89,8 +92,8 @@ export default function AllActivityScreen({ navigation }) {
         }
       />
 
-      <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.navRow}>
+      <View style={[dynamicStyles(colors).bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={dynamicStyles(colors).navRow}>
           <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('dashboard'); navigation.navigate('Home'); }}>
             <MaterialCommunityIcons name="home" size={24} color={activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A'} />
             <Text style={[styles.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A' }]}>Dashboard</Text>
@@ -121,21 +124,21 @@ export default function AllActivityScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
+const dynamicStyles = (colors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#0F1B2E',
+    backgroundColor: colors.headerBg,
     borderBottomWidth: 1,
-    borderBottomColor: '#0E2748'
+    borderBottomColor: colors.border
   },
   backButton: { padding: 8 },
-  title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
-  list: { flex: 1, backgroundColor: '#071027' },
+  title: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  list: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: 16, paddingBottom: 120 },
   emptyContainer: { padding: 16, paddingBottom: 120, flexGrow: 1, justifyContent: 'center' },
   activityItem: {
@@ -143,24 +146,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: '#0A1F3A',
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#0E6CFF'
   },
   activityLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  docIcon: { width: 48, height: 48, backgroundColor: '#0E2748', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  activityTitle: { color: '#E6EEF8', fontWeight: '700', fontSize: 14 },
-  activitySub: { color: '#9AA7C0', marginTop: 4, fontSize: 12 },
-  activityDate: { color: '#5B7A9A', marginTop: 4, fontSize: 10 },
+  docIcon: { width: 48, height: 48, backgroundColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  activityTitle: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  activitySub: { color: colors.textSecondary, marginTop: 4, fontSize: 12 },
+  activityDate: { color: colors.icon, marginTop: 4, fontSize: 10 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   statusText: { fontWeight: '700', fontSize: 10, marginTop: 4 },
-
-  emptyState: { backgroundColor: '#0A1F3A', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#0E2748', alignItems: 'center' },
-  emptyTitle: { color: '#E6EEF8', fontSize: 15, fontWeight: '800', marginTop: 12, textAlign: 'center' },
-  emptySub: { color: '#9AA7C0', fontSize: 12, marginTop: 8, lineHeight: 18, textAlign: 'center' },
-  
+  emptyState: { backgroundColor: colors.cardBg, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  emptyTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 12, textAlign: 'center' },
+  emptySub: { color: colors.textSecondary, fontSize: 12, marginTop: 8, lineHeight: 18, textAlign: 'center' },
   bottomNav: { 
     position: 'absolute', 
     bottom: 0, 
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
   },
   navRow: {
     width: '100%',
-    backgroundColor: '#0F1B2E',
+    backgroundColor: colors.headerBg,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 18,
     borderTopWidth: 1,
-    borderTopColor: '#0E2748'
+    borderTopColor: colors.border
   },
   navItem: { alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 8, flex: 1, minHeight: 50 },
   navLabel: { fontSize: 11, fontWeight: '600', marginTop: 6, height: 14 },
@@ -198,6 +199,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
+    elevation: 10
+  }
+});
+
+const styles = { safeArea: {}, header: {}, backButton: {}, title: {}, list: {}, listContent: {}, emptyContainer: {}, activityItem: {}, activityLeft: {}, docIcon: {}, activityTitle: {}, activitySub: {}, activityDate: {}, statusBadge: {}, statusText: {}, emptyState: {}, emptyTitle: {}, emptySub: {}, bottomNav: {}, navRow: {}, navItem: {}, navLabel: {}, scanButton: {}, scanIconContainer: {} };
     elevation: 15
   }
 });

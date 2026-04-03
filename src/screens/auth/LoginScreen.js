@@ -2,10 +2,13 @@ import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { AuthContext } from '../../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const { signIn } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,22 +33,22 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.inner}>
-        <Text style={styles.title}>Authentiqua</Text>
-        <Text style={styles.subtitle}>AI-backed authenticity scanner</Text>
+    <KeyboardAvoidingView style={dynamicLoginStyles(colors).container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={dynamicLoginStyles(colors).inner}>
+        <Text style={dynamicLoginStyles(colors).title}>Authentiqua</Text>
+        <Text style={dynamicLoginStyles(colors).subtitle}>AI-backed authenticity scanner</Text>
 
         <CustomInput label="Email" value={email} onChangeText={setEmail} placeholder="you@company.com" error={null} />
         <CustomInput label="Password" value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={dynamicLoginStyles(colors).error}>{error}</Text> : null}
 
         <CustomButton title={loading ? 'Signing in...' : 'Sign In'} onPress={onSubmit} disabled={loading} style={{ marginTop: 8 }} />
 
-        <View style={styles.row}>
-          <Text style={styles.muted}>No account?</Text>
+        <View style={dynamicLoginStyles(colors).row}>
+          <Text style={dynamicLoginStyles(colors).muted}>No account?</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Signup')} style={{ marginLeft: 8 }}>
-            <Text style={styles.link}>Create one</Text>
+            <Text style={dynamicLoginStyles(colors).link}>Create one</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -53,13 +56,15 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.darkBg },
+const dynamicLoginStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   inner: { padding: 24, flex: 1, justifyContent: 'center' },
-  title: { color: colors.accent, fontSize: 34, fontWeight: '800', marginBottom: 6 },
-  subtitle: { color: colors.muted, marginBottom: 20 },
+  title: { color: '#0E6CFF', fontSize: 34, fontWeight: '800', marginBottom: 6 },
+  subtitle: { color: colors.textSecondary, marginBottom: 20 },
   row: { flexDirection: 'row', marginTop: 16, alignItems: 'center' },
-  muted: { color: colors.muted },
-  link: { color: colors.accent, fontWeight: '700' },
+  muted: { color: colors.textSecondary },
+  link: { color: '#0E6CFF', fontWeight: '700' },
   error: { color: '#FF6B6B', marginTop: 8 }
 });
+
+const styles = { container: {}, inner: {}, title: {}, subtitle: {}, row: {}, muted: {}, link: {}, error: {} };

@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { getDocument } from '../../../backend/firestore';
 
 export default function DocumentDetailScreen({ route, navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const { id } = route.params || {};
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,28 +53,28 @@ export default function DocumentDetailScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={dynamicStyles(colors).safeArea}>
+      <View style={dynamicStyles(colors).header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles(colors).backButton}>
+          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Document Overview</Text>
+        <Text style={dynamicStyles(colors).title}>Document Overview</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={dynamicStyles(colors).container} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={styles.loadingText}>Loading document...</Text>
+          <View style={dynamicStyles(colors).center}>
+            <ActivityIndicator size="large" color="#0E6CFF" />
+            <Text style={dynamicStyles(colors).loadingText}>Loading document...</Text>
           </View>
         ) : error ? (
-          <View style={styles.center}>
+          <View style={dynamicStyles(colors).center}>
             <MaterialCommunityIcons name="alert-circle" size={40} color="#FF6B6B" />
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={dynamicStyles(colors).errorText}>{error}</Text>
           </View>
         ) : (
-          <View style={styles.card}>
+          <View style={dynamicStyles(colors).card}>
             <View style={styles.iconRow}>
               <View style={styles.docIcon}>
                 <MaterialCommunityIcons name="file-document" size={32} color="#0E6CFF" />

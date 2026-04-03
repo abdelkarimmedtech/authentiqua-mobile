@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 
 const FAQ_ITEMS = [
   {
@@ -43,19 +45,21 @@ const FAQ_ITEMS = [
 ];
 
 export default function HelpScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [expandedId, setExpandedId] = useState(null);
 
   const FAQItem = ({ item }) => {
     const isExpanded = expandedId === item.id;
     return (
-      <View style={styles.faqCard}>
+      <View style={dynamicStyles(colors).faqCard}>
         <TouchableOpacity
-          style={styles.faqHeader}
+          style={dynamicStyles(colors).faqHeader}
           onPress={() => setExpandedId(isExpanded ? null : item.id)}
         >
-          <View style={styles.faqLeft}>
-            <Text style={styles.faqCategory}>{item.category}</Text>
-            <Text style={styles.faqQuestion}>{item.question}</Text>
+          <View style={dynamicStyles(colors).faqLeft}>
+            <Text style={dynamicStyles(colors).faqCategory}>{item.category}</Text>
+            <Text style={dynamicStyles(colors).faqQuestion}>{item.question}</Text>
           </View>
           <MaterialCommunityIcons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
@@ -64,8 +68,8 @@ export default function HelpScreen({ navigation }) {
           />
         </TouchableOpacity>
         {isExpanded && (
-          <View style={styles.faqContent}>
-            <Text style={styles.faqAnswer}>{item.answer}</Text>
+          <View style={dynamicStyles(colors).faqContent}>
+            <Text style={dynamicStyles(colors).faqAnswer}>{item.answer}</Text>
           </View>
         )}
       </View>
@@ -73,27 +77,27 @@ export default function HelpScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={dynamicStyles(colors).safeArea}>
+      <View style={dynamicStyles(colors).container}>
+        <View style={dynamicStyles(colors).header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles(colors).backBtn}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help & Support</Text>
+          <Text style={dynamicStyles(colors).headerTitle}>Help & Support</Text>
           <View style={{ width: 28 }} />
         </View>
 
-        <View style={styles.helpIntro}>
+        <View style={dynamicStyles(colors).helpIntro}>
           <MaterialCommunityIcons name="help-circle-outline" size={48} color="#0E6CFF" />
-          <Text style={styles.helpTitle}>Frequently Asked Questions</Text>
-          <Text style={styles.helpSubtitle}>Find answers to common questions about Authentiqua</Text>
+          <Text style={dynamicStyles(colors).helpTitle}>Frequently Asked Questions</Text>
+          <Text style={dynamicStyles(colors).helpSubtitle}>Find answers to common questions about Authentiqua</Text>
         </View>
 
         <FlatList
           data={FAQ_ITEMS}
           keyExtractor={item => item.id}
           renderItem={FAQItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={dynamicStyles(colors).listContent}
           scrollEnabled={true}
         />
 
@@ -109,9 +113,9 @@ export default function HelpScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  container: { flex: 1, backgroundColor: '#071027', paddingHorizontal: 16 },
+const dynamicStyles = (colors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,12 +127,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0A1F3A',
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#E6EEF8',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '800',
   },
@@ -138,13 +142,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   helpTitle: {
-    color: '#E6EEF8',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 12,
   },
   helpSubtitle: {
-    color: '#9AA7C0',
+    color: colors.textSecondary,
     fontSize: 13,
     marginTop: 6,
     textAlign: 'center',
@@ -153,7 +157,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   faqCard: {
-    backgroundColor: '#0A1F3A',
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
@@ -179,7 +183,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   faqQuestion: {
-    color: '#E6EEF8',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -187,17 +191,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 14,
     borderTopWidth: 1,
-    borderTopColor: '#051026',
+    borderTopColor: colors.border,
   },
   faqAnswer: {
-    color: '#9AA7C0',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
   },
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A1F3A',
+    backgroundColor: colors.cardBg,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
@@ -213,4 +217,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-});
+const styles = { safeArea: {}, container: {}, header: {}, backBtn: {}, headerTitle: {}, helpIntro: {}, helpTitle: {}, helpSubtitle: {}, listContent: {}, faqCard: {}, faqHeader: {}, faqLeft: {}, faqCategory: {}, faqQuestion: {}, faqContent: {}, faqAnswer: {}, contactCard: {}

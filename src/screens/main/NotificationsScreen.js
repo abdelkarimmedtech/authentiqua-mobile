@@ -1,41 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 
 export default function NotificationsScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [updateEnabled, setUpdateEnabled] = useState(false);
   const [promoEnabled, setPromoEnabled] = useState(false);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+    <SafeAreaView style={dynamicStyles(colors).safeArea}>
+      <View style={dynamicStyles(colors).header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Notification Settings</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CHANNELS</Text>
-          <View style={styles.card}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
+      <ScrollView style={dynamicStyles(colors).container} showsVerticalScrollIndicator={false}>
+        <View style={dynamicStyles(colors).section}>
+          <Text style={dynamicStyles(colors).sectionTitle}>CHANNELS</Text>
+          <View style={dynamicStyles(colors).card}>
+            <View style={dynamicStyles(colors).settingRow}>
+              <View style={dynamicStyles(colors).settingLeft}>
                 <MaterialCommunityIcons name="bell" size={24} color="#0E6CFF" />
                 <View style={{ marginLeft: 12 }}>
-                  <Text style={styles.settingLabel}>Push Notifications</Text>
-                  <Text style={styles.settingDesc}>In-app alerts and updates</Text>
+                  <Text style={dynamicStyles(colors).settingLabel}>Push Notifications</Text>
+                  <Text style={dynamicStyles(colors).settingDesc}>In-app alerts and updates</Text>
                 </View>
               </View>
               <Switch
                 value={pushEnabled}
                 onValueChange={setPushEnabled}
-                trackColor={{ false: '#0E2748', true: 'rgba(14, 108, 255, 0.5)' }}
-                thumbColor={pushEnabled ? '#0E6CFF' : '#5B7A9A'}
+                trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
+                thumbColor={pushEnabled ? '#0E6CFF' : colors.icon}
               />
             </View>
             <View style={styles.divider} />
@@ -50,16 +54,16 @@ export default function NotificationsScreen({ navigation }) {
               <Switch
                 value={emailEnabled}
                 onValueChange={setEmailEnabled}
-                trackColor={{ false: '#0E2748', true: 'rgba(14, 108, 255, 0.5)' }}
-                thumbColor={emailEnabled ? '#0E6CFF' : '#5B7A9A'}
+                trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
+                thumbColor={emailEnabled ? '#0E6CFF' : colors.icon}
               />
             </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PREFERENCES</Text>
-          <View style={styles.card}>
+        <View style={dynamicStyles(colors).section}>
+          <Text style={dynamicStyles(colors).sectionTitle}>PREFERENCES</Text>
+          <View style={dynamicStyles(colors).card}>
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
                 <MaterialCommunityIcons name="sync" size={24} color="#0E6CFF" />
@@ -71,8 +75,8 @@ export default function NotificationsScreen({ navigation }) {
               <Switch
                 value={updateEnabled}
                 onValueChange={setUpdateEnabled}
-                trackColor={{ false: '#0E2748', true: 'rgba(14, 108, 255, 0.5)' }}
-                thumbColor={updateEnabled ? '#0E6CFF' : '#5B7A9A'}
+                trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
+                thumbColor={updateEnabled ? '#0E6CFF' : colors.icon}
               />
             </View>
             <View style={styles.divider} />
@@ -87,8 +91,8 @@ export default function NotificationsScreen({ navigation }) {
               <Switch
                 value={promoEnabled}
                 onValueChange={setPromoEnabled}
-                trackColor={{ false: '#0E2748', true: 'rgba(14, 108, 255, 0.5)' }}
-                thumbColor={promoEnabled ? '#0E6CFF' : '#5B7A9A'}
+                trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
+                thumbColor={promoEnabled ? '#0E6CFF' : colors.icon}
               />
             </View>
           </View>
@@ -100,29 +104,29 @@ export default function NotificationsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
+const dynamicStyles = (colors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#0F1B2E',
+    backgroundColor: colors.headerBg,
     borderBottomWidth: 1,
-    borderBottomColor: '#0E2748'
+    borderBottomColor: colors.border
   },
   backButton: { padding: 8 },
-  title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
-  container: { flex: 1, padding: 16, backgroundColor: '#071027' },
+  title: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  container: { flex: 1, padding: 16, backgroundColor: colors.bg },
   section: { marginTop: 24 },
-  sectionTitle: { color: '#5B7A9A', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12 },
+  sectionTitle: { color: colors.icon, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12 },
   card: {
-    backgroundColor: '#0A1F3A',
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#0E2748'
+    borderColor: colors.border
   },
   settingRow: {
     flexDirection: 'row',
@@ -131,7 +135,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12
   },
   settingLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  settingLabel: { color: '#E6EEF8', fontSize: 14, fontWeight: '700' },
-  settingDesc: { color: '#9AA7C0', fontSize: 12, marginTop: 4 },
-  divider: { height: 1, backgroundColor: '#0E2748' }
+  settingLabel: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  settingDesc: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  divider: { height: 1, backgroundColor: colors.border }
 });
+
+const styles = { safeArea: {}, header: {}, backButton: {}, title: {}, container: {}, section: {}, sectionTitle: {}, card: {}, settingRow: {}, settingLeft: {}, settingLabel: {}, settingDesc: {}, divider: {} };
