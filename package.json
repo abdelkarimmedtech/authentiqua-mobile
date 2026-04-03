@@ -16,6 +16,7 @@
     "@react-native-firebase/firestore": "^23.8.6",
     "@react-navigation/native": "^6.1.6",
     "@react-navigation/native-stack": "^6.9.12",
+    "dotenv": "^17.3.1",
     "expo": "^54.0.0",
     "expo-camera": "^17.0.10",
     "expo-document-picker": "^14.0.8",
