@@ -16,6 +16,7 @@ function formatType(t) {
 export default function AllActivityScreen({ navigation }) {
   const { theme } = useContext(ThemeContext);
   const colors = getThemeColors(theme);
+  const ds = dynamicStyles(colors);
   const [activeTab, setActiveTab] = useState('history');
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
@@ -40,34 +41,34 @@ export default function AllActivityScreen({ navigation }) {
     const docType = item.details?.documentType || '';
 
     return (
-      <View style={styles.activityItem}>
-        <View style={styles.activityLeft}>
-          <View style={styles.docIcon}>
+      <View style={ds.activityItem}>
+        <View style={ds.activityLeft}>
+          <View style={ds.docIcon}>
             <MaterialCommunityIcons name="file-document" size={24} color="#5B7A9A" />
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.activityTitle}>
+            <Text style={ds.activityTitle}>
               {docType ? `Verification • ${docType}` : formatType(item.type)}
             </Text>
-            <Text style={styles.activitySub}>{university || item.description || ''}</Text>
-            <Text style={styles.activityDate}>{createdAt ? createdAt.toLocaleString() : ''}</Text>
+            <Text style={ds.activitySub}>{university || item.description || ''}</Text>
+            <Text style={ds.activityDate}>{createdAt ? createdAt.toLocaleString() : ''}</Text>
           </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+        <View style={[ds.statusBadge, { backgroundColor: statusBg }]}>
           <MaterialCommunityIcons name={icon} size={18} color={statusColor} />
-          <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
+          <Text style={[ds.statusText, { color: statusColor }]}>{item.status}</Text>
         </View>
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={dynamicStyles(colors).safeArea}>
-      <View style={dynamicStyles(colors).header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles(colors).backButton}>
+    <SafeAreaView style={ds.safeArea}>
+      <View style={ds.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={ds.backButton}>
           <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={dynamicStyles(colors).title}>History</Text>
+        <Text style={ds.title}>History</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -75,15 +76,15 @@ export default function AllActivityScreen({ navigation }) {
         data={activities}
         keyExtractor={(item) => item.id}
         renderItem={renderActivity}
-        style={dynamicStyles(colors).list}
-        contentContainerStyle={activities.length === 0 ? dynamicStyles(colors).emptyContainer : dynamicStyles(colors).listContent}
+        style={ds.list}
+        contentContainerStyle={activities.length === 0 ? ds.emptyContainer : ds.listContent}
         scrollEnabled={true}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={dynamicStyles(colors).emptyState}>
+          <View style={ds.emptyState}>
             <MaterialCommunityIcons name="history" size={52} color={colors.icon} />
-            <Text style={dynamicStyles(colors).emptyTitle}>No activity yet</Text>
-            <Text style={dynamicStyles(colors).emptySub}>
+            <Text style={ds.emptyTitle}>No activity yet</Text>
+            <Text style={ds.emptySub}>
               {role === 'USER'
                 ? 'Scan and verify a document to see your verification history.'
                 : 'Upload a reference document to see your activity here.'}
@@ -92,29 +93,29 @@ export default function AllActivityScreen({ navigation }) {
         }
       />
 
-      <View style={[dynamicStyles(colors).bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={dynamicStyles(colors).navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('dashboard'); navigation.navigate('Home'); }}>
+      <View style={[ds.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={ds.navRow}>
+          <TouchableOpacity style={ds.navItem} onPress={() => { setActiveTab('dashboard'); navigation.navigate('Home'); }}>
             <MaterialCommunityIcons name="home" size={24} color={activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A' }]}>Dashboard</Text>
+            <Text style={[ds.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A' }]}>Dashboard</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('documents'); navigation.navigate('Documents'); }}>
+          <TouchableOpacity style={ds.navItem} onPress={() => { setActiveTab('documents'); navigation.navigate('Documents'); }}>
             <MaterialCommunityIcons name="file-document" size={24} color={activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A' }]}>Documents</Text>
+            <Text style={[ds.navLabel, { color: activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A' }]}>Documents</Text>
           </TouchableOpacity>
           <View style={{ width: role === 'USER' ? 70 : 0 }} />
-          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('history'); }}>
+          <TouchableOpacity style={ds.navItem} onPress={() => { setActiveTab('history'); }}>
             <MaterialCommunityIcons name="history" size={24} color={activeTab === 'history' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : '#5B7A9A' }]}>History</Text>
+            <Text style={[ds.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : '#5B7A9A' }]}>History</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('profile'); navigation.navigate('Profile'); }}>
+          <TouchableOpacity style={ds.navItem} onPress={() => { setActiveTab('profile'); navigation.navigate('Profile'); }}>
             <MaterialCommunityIcons name="account" size={24} color={activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A' }]}>Profile</Text>
+            <Text style={[ds.navLabel, { color: activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A' }]}>Profile</Text>
           </TouchableOpacity>
         </View>
         {role === 'USER' ? (
-          <TouchableOpacity style={styles.scanButton} onPress={() => { setActiveTab('scan'); navigation.navigate('Scan'); }}>
-            <View style={styles.scanIconContainer}>
+          <TouchableOpacity style={ds.scanButton} onPress={() => { setActiveTab('scan'); navigation.navigate('Scan'); }}>
+            <View style={ds.scanIconContainer}>
               <MaterialCommunityIcons name="qrcode-scan" size={32} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
