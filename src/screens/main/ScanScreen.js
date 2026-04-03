@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomButton from '../../components/CustomButton';
 import CustomInput from '../../components/CustomInput';
 import { ThemeContext } from '../../context/ThemeContext';
-    import { getThemeColors } from '../../utils/themeColors';
+import { getThemeColors } from '../../utils/themeColors';
 import { scanImage } from '../../services/scanService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
@@ -25,6 +25,8 @@ const DOC_TYPES = [
 
 export default function ScanScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const role = useMemo(() => getUserRole(user), [user]);
   const defaultUniversity = user?.profile?.university || '';
 
@@ -404,8 +406,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#142844'
   },
-  placeholderText: { color: colors.muted, fontSize: 16, fontWeight: '700', marginTop: 12 },
-  placeholderSub: { color: colors.muted, fontSize: 12, marginTop: 6 },
+  placeholderText: { color: '#9AA7C0', fontSize: 16, fontWeight: '700', marginTop: 12 },
+  placeholderSub: { color: '#9AA7C0', fontSize: 12, marginTop: 6 },
   
   actionButtons: {
     flexDirection: 'row',

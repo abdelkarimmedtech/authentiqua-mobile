@@ -111,32 +111,36 @@ export default function DocumentDetailScreen({ route, navigation }) {
   );
 }
 
+const dynamicStyles = (colors) =>
+  StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      backgroundColor: colors.headerBg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    backButton: { padding: 8 },
+    title: { color: colors.text, fontSize: 18, fontWeight: '800' },
+    container: { flex: 1, padding: 16, backgroundColor: colors.bg },
+    center: { alignItems: 'center', justifyContent: 'center', marginTop: 40 },
+    loadingText: { color: colors.textSecondary, marginTop: 12 },
+    errorText: { color: '#FF6B6B', marginTop: 12, textAlign: 'center' },
+    card: {
+      backgroundColor: colors.cardBg,
+      borderRadius: 12,
+      padding: 16,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+  });
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#0F1B2E',
-    borderBottomWidth: 1,
-    borderBottomColor: '#0E2748',
-  },
-  backButton: { padding: 8 },
-  title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
-  container: { flex: 1, padding: 16, backgroundColor: '#071027' },
-  center: { alignItems: 'center', justifyContent: 'center', marginTop: 40 },
-  loadingText: { color: colors.muted, marginTop: 12 },
-  errorText: { color: '#FF6B6B', marginTop: 12, textAlign: 'center' },
-  card: {
-    backgroundColor: '#0A1F3A',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#0E2748',
-  },
   iconRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   docIcon: {
     width: 52,
