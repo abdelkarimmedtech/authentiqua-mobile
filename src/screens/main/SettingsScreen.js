@@ -1,43 +1,46 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 
 export default function SettingsScreen({ navigation }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [biometricEnabled, setBiometricEnabled] = React.useState(false);
 
   const SettingItem = ({ icon, label, value, onToggle }) => (
-    <View style={styles.settingItem}>
+    <View style={[styles.settingItem, { backgroundColor: colors.cardBg }]}>
       <View style={styles.settingLeft}>
-        <View style={styles.iconBox}>
+        <View style={[styles.iconBox, { backgroundColor: colors.optionBg }]}>
           <MaterialCommunityIcons name={icon} size={24} color="#0E6CFF" />
         </View>
-        <Text style={styles.settingLabel}>{label}</Text>
+        <Text style={[styles.settingLabel, { color: colors.text }]}>{label}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: '#0A2238', true: '#0E6CFF' }}
-        thumbColor={value ? '#00FF99' : '#5B7A9A'}
+        trackColor={{ false: colors.optionBg, true: '#0E6CFF' }}
+        thumbColor={value ? '#00FF99' : colors.icon}
       />
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.cardBg }]}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
           <View style={{ width: 28 }} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Notifications</Text>
           <SettingItem
             icon="bell"
             label="Enable Notifications"
@@ -47,7 +50,7 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Security</Text>
           <SettingItem
             icon="fingerprint"
             label="Biometric Login"
@@ -57,14 +60,14 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>App Version</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>About</Text>
+          <View style={[styles.infoItem, { backgroundColor: colors.cardBg, borderBottomColor: colors.border }]}>
+            <Text style={[styles.infoLabel, { color: colors.text }]}>App Version</Text>
+            <Text style={[styles.infoValue, { color: colors.textSecondary }]}>1.0.0</Text>
           </View>
-          <View style={[styles.infoItem, { borderBottomWidth: 0 }]}>
-            <Text style={styles.infoLabel}>Privacy Policy</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#5B7A9A" />
+          <View style={[styles.infoItem, { borderBottomWidth: 0, backgroundColor: colors.cardBg }]}>
+            <Text style={[styles.infoLabel, { color: colors.text }]}>Privacy Policy</Text>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.icon} />
           </View>
         </View>
       </View>
@@ -73,25 +76,24 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  container: { flex: 1, backgroundColor: '#071027', padding: 16 },
+  safeArea: { flex: 1 },
+  container: { flex: 1, padding: 16 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
     marginBottom: 24,
+    borderBottomWidth: 1,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0A1F3A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#E6EEF8',
     fontSize: 20,
     fontWeight: '800',
   },
@@ -99,7 +101,6 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   sectionTitle: {
-    color: '#9AA7C0',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -112,7 +113,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 12,
-    backgroundColor: '#0A1F3A',
     borderRadius: 12,
     marginBottom: 10,
   },
@@ -125,13 +125,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#051026',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   settingLabel: {
-    color: '#E6EEF8',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -141,19 +139,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 12,
-    backgroundColor: '#0A1F3A',
     borderRadius: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#0E2748',
     marginBottom: 10,
   },
   infoLabel: {
-    color: '#E6EEF8',
     fontSize: 14,
     fontWeight: '600',
   },
   infoValue: {
-    color: '#9AA7C0',
     fontSize: 13,
     fontWeight: '500',
   },

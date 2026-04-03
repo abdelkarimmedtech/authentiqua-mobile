@@ -2,12 +2,15 @@ import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
 import { AuthContext } from '../../context/AuthContext';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { updateUserProfile } from '../../../backend/firestore';
 
 export default function AccountInfoScreen({ navigation }) {
   const { user, refreshProfile } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const profile = user?.profile || {};
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);

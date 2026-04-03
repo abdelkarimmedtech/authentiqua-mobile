@@ -1,9 +1,10 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import colors from '../../constants/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { getUserRole } from '../../utils/user';
 import { onUserDocumentsChange, onUniversityReferenceDocumentsChange } from '../../../backend/firestore';
 
@@ -16,6 +17,8 @@ export default function DocumentsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('documents');
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const role = useMemo(() => getUserRole(user), [user]);
   const [documents, setDocuments] = useState([]);
 
@@ -40,18 +43,18 @@ export default function DocumentsScreen({ navigation }) {
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.docCard}
+      style={[styles.docCard, { backgroundColor: colors.cardBg }]}
       activeOpacity={0.85}
       onPress={() => navigation.navigate('DocumentDetail', { id: item.id })}
     >
       <View style={styles.docLeft}>
-        <View style={styles.docIcon}>
+        <View style={[styles.docIcon, { backgroundColor: colors.optionBg }]}>
           <MaterialCommunityIcons name="file-document" size={28} color="#0E6CFF" />
         </View>
         <View style={{ marginLeft: 12, flex: 1 }}>
-          <Text style={styles.docTitle}>{formatType(item.documentType)}</Text>
-          <Text style={styles.docSub}>{item.university || ''}</Text>
-          <Text style={styles.docDate}>
+          <Text style={[styles.docTitle, { color: colors.text }]}>{formatType(item.documentType)}</Text>
+          <Text style={[styles.docSub, { color: colors.textSecondary }]}>{item.university || ''}</Text>
+          <Text style={[styles.docDate, { color: colors.icon }]}>
             {(item.uploadedAt?.toDate?.() ? item.uploadedAt.toDate() : item.uploadedAt)
               ? new Date(item.uploadedAt?.toDate?.() ? item.uploadedAt.toDate() : item.uploadedAt).toLocaleDateString()
               : ''}
@@ -72,27 +75,27 @@ export default function DocumentsScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.cardBg }]}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{role === 'USER' ? 'My Documents' : 'Reference Documents'}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{role === 'USER' ? 'My Documents' : 'Reference Documents'}</Text>
           <View style={{ width: 28 }} />
         </View>
 
-        <Text style={styles.sublabel}>
+        <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
           {role === 'USER' ? 'Total Scanned' : 'Total Reference Docs'}: {documents.length}
         </Text>
 
         {documents.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="file-document-outline" size={52} color="#5B7A9A" />
-            <Text style={styles.emptyTitle}>
+          <View style={[styles.emptyState, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="file-document-outline" size={52} color={colors.icon} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               {role === 'USER' ? 'No documents scanned yet' : 'No reference documents yet'}
             </Text>
-            <Text style={styles.emptySub}>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
               {role === 'USER'
                 ? 'Scan your first document to see it here.'
                 : 'Upload official documents so normal users can be verified.'}
@@ -120,23 +123,23 @@ export default function DocumentsScreen({ navigation }) {
       </View>
 
       <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.navRow}>
+        <View style={[styles.navRow, { backgroundColor: colors.headerBg, borderTopColor: colors.border }]}>
           <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('dashboard'); navigation.navigate('Home'); }}>
-            <MaterialCommunityIcons name="home" size={24} color={activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : '#5B7A9A' }]}>Dashboard</Text>
+            <MaterialCommunityIcons name="home" size={24} color={activeTab === 'dashboard' ? '#0E6CFF' : colors.icon} />
+            <Text style={[styles.navLabel, { color: activeTab === 'dashboard' ? '#0E6CFF' : colors.icon }]}>Dashboard</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('documents'); }}>
-            <MaterialCommunityIcons name="file-document" size={24} color={activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'documents' ? '#0E6CFF' : '#5B7A9A' }]}>Documents</Text>
+            <MaterialCommunityIcons name="file-document" size={24} color={activeTab === 'documents' ? '#0E6CFF' : colors.icon} />
+            <Text style={[styles.navLabel, { color: activeTab === 'documents' ? '#0E6CFF' : colors.icon }]}>Documents</Text>
           </TouchableOpacity>
           <View style={{ width: role === 'USER' ? 70 : 0 }} />
           <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('history'); navigation.navigate('AllActivity'); }}>
-            <MaterialCommunityIcons name="history" size={24} color={activeTab === 'history' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : '#5B7A9A' }]}>History</Text>
+            <MaterialCommunityIcons name="history" size={24} color={activeTab === 'history' ? '#0E6CFF' : colors.icon} />
+            <Text style={[styles.navLabel, { color: activeTab === 'history' ? '#0E6CFF' : colors.icon }]}>History</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => { setActiveTab('profile'); navigation.navigate('Profile'); }}>
-            <MaterialCommunityIcons name="account" size={24} color={activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A'} />
-            <Text style={[styles.navLabel, { color: activeTab === 'profile' ? '#0E6CFF' : '#5B7A9A' }]}>Profile</Text>
+            <MaterialCommunityIcons name="account" size={24} color={activeTab === 'profile' ? '#0E6CFF' : colors.icon} />
+            <Text style={[styles.navLabel, { color: activeTab === 'profile' ? '#0E6CFF' : colors.icon }]}>Profile</Text>
           </TouchableOpacity>
         </View>
         {role === 'USER' ? (
@@ -152,30 +155,28 @@ export default function DocumentsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  container: { flex: 1, backgroundColor: '#071027', padding: 16 },
+  safeArea: { flex: 1 },
+  container: { flex: 1, padding: 16 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
     marginBottom: 16,
+    borderBottomWidth: 1,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0A1F3A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#E6EEF8',
     fontSize: 20,
     fontWeight: '800',
   },
   sublabel: {
-    color: '#9AA7C0',
     fontSize: 13,
     marginBottom: 12,
     fontWeight: '600',
@@ -186,17 +187,15 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    backgroundColor: '#0A1F3A',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#0E2748',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,
   },
-  emptyTitle: { color: '#E6EEF8', fontSize: 15, fontWeight: '800', marginTop: 12, textAlign: 'center' },
-  emptySub: { color: '#9AA7C0', fontSize: 12, marginTop: 8, lineHeight: 18, textAlign: 'center' },
+  emptyTitle: { fontSize: 15, fontWeight: '800', marginTop: 12, textAlign: 'center' },
+  emptySub: { fontSize: 12, marginTop: 8, lineHeight: 18, textAlign: 'center' },
   emptyAction: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0E6CFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
   emptyActionText: { color: '#FFFFFF', fontWeight: '800' },
   docCard: {
@@ -204,7 +203,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: '#0A1F3A',
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
@@ -219,23 +217,19 @@ const styles = StyleSheet.create({
   docIcon: {
     width: 48,
     height: 48,
-    backgroundColor: '#051026',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   docTitle: {
-    color: '#E6EEF8',
     fontWeight: '700',
     fontSize: 14,
   },
   docSub: {
-    color: '#9AA7C0',
     fontSize: 12,
     marginTop: 4,
   },
   docDate: {
-    color: '#5B7A9A',
     fontSize: 11,
     marginTop: 2,
   },
@@ -272,7 +266,6 @@ const styles = StyleSheet.create({
   },
   navRow: {
     width: '100%',
-    backgroundColor: '#0F1B2E',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
@@ -280,7 +273,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 18,
     borderTopWidth: 1,
-    borderTopColor: '#0E2748'
   },
   navItem: { alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 8, flex: 1, minHeight: 50 },
   navLabel: { fontSize: 11, fontWeight: '600', marginTop: 6, height: 14 },
@@ -298,4 +290,5 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 15
   }
+});
 });
