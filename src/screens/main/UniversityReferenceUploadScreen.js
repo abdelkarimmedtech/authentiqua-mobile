@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
 import CustomButton from '../../components/CustomButton';
 import { AuthContext } from '../../context/AuthContext';
+import { ThemeContext } from '../../context/ThemeContext';
+import { getThemeColors } from '../../utils/themeColors';
 import { getUserDisplayName } from '../../utils/user';
 import { uploadDocument, logActivity } from '../../../backend/firestore';
 
@@ -21,6 +22,9 @@ const DOC_TYPES = [
 
 export default function UniversityReferenceUploadScreen({ navigation }) {
   const { user } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
+  const dynamicStyles = createDynamicStyles(colors);
   const university = user?.profile?.university || '';
   const staffName = getUserDisplayName(user);
   const staffRole = user?.profile?.jobTitle || null;
@@ -118,64 +122,64 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#E6EEF8" />
+    <SafeAreaView style={dynamicStyles.safeArea}>
+      <View style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles.backBtn}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Upload Reference</Text>
+          <Text style={dynamicStyles.headerTitle}>Upload Reference</Text>
           <View style={{ width: 28 }} />
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>University</Text>
-          <Text style={styles.cardValue}>{university || 'Not set'}</Text>
+        <View style={dynamicStyles.card}>
+          <Text style={dynamicStyles.cardTitle}>University</Text>
+          <Text style={dynamicStyles.cardValue}>{university || 'Not set'}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Document type</Text>
-        <View style={styles.typeGrid}>
+        <Text style={dynamicStyles.sectionTitle}>Document type</Text>
+        <View style={dynamicStyles.typeGrid}>
           {DOC_TYPES.map((t) => (
             <TouchableOpacity
               key={t.id}
               onPress={() => setDocumentType(t.id)}
-              style={[styles.typePill, documentType === t.id && styles.typePillActive]}
+              style={[dynamicStyles.typePill, documentType === t.id && dynamicStyles.typePillActive]}
               activeOpacity={0.85}
             >
-              <MaterialCommunityIcons name={t.icon} size={18} color={documentType === t.id ? '#00FF99' : '#5B7A9A'} />
-              <Text style={[styles.typeText, documentType === t.id && { color: '#00FF99' }]}>{t.label}</Text>
+              <MaterialCommunityIcons name={t.icon} size={18} color={documentType === t.id ? '#00FF99' : colors.textSecondary} />
+              <Text style={[dynamicStyles.typeText, documentType === t.id && { color: '#00FF99' }]}>{t.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.preview}>
+        <View style={dynamicStyles.preview}>
           {fileUri ? (
             fileUri.toLowerCase().endsWith('.pdf') ? (
-              <View style={styles.pdfPreview}>
+              <View style={dynamicStyles.pdfPreview}>
                 <MaterialCommunityIcons name="file-pdf-box" size={72} color="#FF6B6B" />
-                <Text style={styles.fileName}>{fileName}</Text>
-                <Text style={styles.fileSub}>PDF ready to upload</Text>
+                <Text style={dynamicStyles.fileName}>{fileName}</Text>
+                <Text style={dynamicStyles.fileSub}>PDF ready to upload</Text>
               </View>
             ) : (
-              <Image source={{ uri: fileUri }} style={styles.imagePreview} />
+              <Image source={{ uri: fileUri }} style={dynamicStyles.imagePreview} />
             )
           ) : (
-            <View style={styles.emptyPreview}>
-              <MaterialCommunityIcons name="upload" size={48} color="#5B7A9A" />
-              <Text style={styles.emptyTitle}>Select a reference document</Text>
-              <Text style={styles.emptySub}>Upload the official document for your university.</Text>
+            <View style={dynamicStyles.emptyPreview}>
+              <MaterialCommunityIcons name="upload" size={48} color={colors.textSecondary} />
+              <Text style={dynamicStyles.emptyTitle}>Select a reference document</Text>
+              <Text style={dynamicStyles.emptySub}>Upload the official document for your university.</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={pickImage}>
+        <View style={dynamicStyles.actions}>
+          <TouchableOpacity style={dynamicStyles.actionBtn} onPress={pickImage}>
             <MaterialCommunityIcons name="image" size={22} color="#0E6CFF" />
-            <Text style={styles.actionLabel}>Choose image</Text>
+            <Text style={dynamicStyles.actionLabel}>Choose image</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={pickDocument}>
+          <TouchableOpacity style={dynamicStyles.actionBtn} onPress={pickDocument}>
             <MaterialCommunityIcons name="file-pdf-box" size={22} color="#0E6CFF" />
-            <Text style={styles.actionLabel}>Select PDF</Text>
+            <Text style={dynamicStyles.actionLabel}>Select PDF</Text>
           </TouchableOpacity>
         </View>
 
@@ -183,7 +187,7 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
           title={loading ? 'Uploading...' : 'Upload reference document'}
           onPress={onUpload}
           disabled={loading || !canUpload}
-          style={styles.uploadBtn}
+          style={dynamicStyles.uploadBtn}
           textStyle={{ color: colors.text }}
         />
       </View>
@@ -191,35 +195,35 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#071027' },
-  container: { flex: 1, backgroundColor: '#071027', padding: 16 },
+const createDynamicStyles = (colors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.bg, padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0A1F3A', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#E6EEF8', fontSize: 18, fontWeight: '900' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.cardBg, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
 
-  card: { backgroundColor: '#0A1F3A', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#0E2748', marginTop: 10 },
-  cardTitle: { color: '#5B7A9A', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
-  cardValue: { color: '#E6EEF8', fontSize: 15, fontWeight: '700', marginTop: 8 },
+  card: { backgroundColor: colors.cardBg, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 },
+  cardTitle: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
+  cardValue: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 8 },
 
-  sectionTitle: { color: '#E6EEF8', fontSize: 14, fontWeight: '800', marginTop: 18, marginBottom: 10 },
+  sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 18, marginBottom: 10 },
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  typePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: '#0A1F3A', borderWidth: 1, borderColor: '#0E2748' },
+  typePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border },
   typePillActive: { borderColor: 'rgba(0,255,153,0.35)', backgroundColor: 'rgba(0,255,153,0.07)' },
-  typeText: { color: '#9AA7C0', fontWeight: '700', fontSize: 12 },
+  typeText: { color: colors.textSecondary, fontWeight: '700', fontSize: 12 },
 
   preview: { flex: 1, marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
   imagePreview: { flex: 1, width: '100%' },
-  pdfPreview: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1B2E', padding: 16 },
-  fileName: { color: '#E6EEF8', fontSize: 14, fontWeight: '700', marginTop: 12, textAlign: 'center' },
-  fileSub: { color: '#9AA7C0', marginTop: 6, fontSize: 12 },
-  emptyPreview: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1B2E', padding: 16 },
-  emptyTitle: { color: '#E6EEF8', fontSize: 15, fontWeight: '800', marginTop: 12 },
-  emptySub: { color: '#9AA7C0', marginTop: 6, fontSize: 12, textAlign: 'center' },
+  pdfPreview: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.headerBg, padding: 16 },
+  fileName: { color: colors.text, fontSize: 14, fontWeight: '700', marginTop: 12, textAlign: 'center' },
+  fileSub: { color: colors.textSecondary, marginTop: 6, fontSize: 12 },
+  emptyPreview: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.headerBg, padding: 16 },
+  emptyTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 12 },
+  emptySub: { color: colors.textSecondary, marginTop: 6, fontSize: 12, textAlign: 'center' },
 
   actions: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  actionBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#0A1F3A', borderRadius: 14, borderWidth: 1, borderColor: '#0E2748' },
-  actionLabel: { color: '#E6EEF8', fontSize: 11, fontWeight: '700', marginTop: 8 },
+  actionBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: colors.cardBg, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
+  actionLabel: { color: colors.text, fontSize: 11, fontWeight: '700', marginTop: 8 },
 
   uploadBtn: { backgroundColor: '#0E6CFF', borderRadius: 12, marginTop: 14 },
 });

@@ -4,12 +4,15 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import { AuthContext } from '../context/AuthContext';
-import colors from '../constants/colors';
+import { ThemeContext } from '../context/ThemeContext';
+import { getThemeColors } from '../utils/themeColors';
 import SplashScreen from '../screens/SplashScreen';
 import { isOnboardingComplete } from '../utils/user';
 
 export default function RootNavigator() {
   const { userToken, loading, user } = useContext(AuthContext);
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -21,8 +24,8 @@ export default function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.darkBg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.accent} />
+      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#0E6CFF" />
       </View>
     );
   }

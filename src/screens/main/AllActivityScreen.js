@@ -202,8 +202,3 @@ const dynamicStyles = (colors) => StyleSheet.create({
     elevation: 10
   }
 });
-
-const styles = { safeArea: {}, header: {}, backButton: {}, title: {}, list: {}, listContent: {}, emptyContainer: {}, activityItem: {}, activityLeft: {}, docIcon: {}, activityTitle: {}, activitySub: {}, activityDate: {}, statusBadge: {}, statusText: {}, emptyState: {}, emptyTitle: {}, emptySub: {}, bottomNav: {}, navRow: {}, navItem: {}, navLabel: {}, scanButton: {}, scanIconContainer: {} };
-    elevation: 15
-  }
-});

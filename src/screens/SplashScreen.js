@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import colors from '../constants/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SplashScreen() {

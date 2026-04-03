@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, TextInput, Text, StyleSheet } from 'react-native';
-import colors from '../constants/colors';
+import { ThemeContext } from '../context/ThemeContext';
+import { getThemeColors } from '../utils/themeColors';
 
 export default function CustomInput({ label, value, onChangeText, placeholder, secureTextEntry, keyboardType, error }) {
+  const { theme } = useContext(ThemeContext);
+  const colors = getThemeColors(theme);
+  const dynamicStyles = createDynamicStyles(colors);
+  
   return (
-    <View style={styles.container}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+    <View style={dynamicStyles.container}>
+      {label ? <Text style={dynamicStyles.label}>{label}</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -13,19 +18,19 @@ export default function CustomInput({ label, value, onChangeText, placeholder, s
         placeholderTextColor={colors.muted}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
-        style={[styles.input, error && styles.inputError]}
+        style={[dynamicStyles.input, error && dynamicStyles.inputError]}
         autoCapitalize="none"
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={dynamicStyles.errorText}>{error}</Text> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createDynamicStyles = (colors) => StyleSheet.create({
   container: { marginBottom: 12 },
   label: { color: colors.muted, marginBottom: 6 },
   input: {
-    backgroundColor: '#0B1222',
+    backgroundColor: colors.optionBg,
     color: colors.text,
     padding: 12,
     borderRadius: 8,
