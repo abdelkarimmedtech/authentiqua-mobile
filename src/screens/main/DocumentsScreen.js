@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ function formatType(t) {
 
 export default function DocumentsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('documents');
+  const [typeQuery, setTypeQuery] = useState('');
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const { theme } = useContext(ThemeContext);
@@ -40,6 +41,12 @@ export default function DocumentsScreen({ navigation }) {
     });
     return () => unsub?.();
   }, [user?.uid, user?.profile?.university, role]);
+
+  const filteredDocuments = useMemo(() => {
+    const q = typeQuery.trim().toUpperCase();
+    if (!q) return documents;
+    return documents.filter((doc) => String(doc.documentType || '').toUpperCase().includes(q));
+  }, [documents, typeQuery]);
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
@@ -89,16 +96,37 @@ export default function DocumentsScreen({ navigation }) {
           {role === 'USER' ? 'Total Scanned' : 'Total Reference Docs'}: {documents.length}
         </Text>
 
-        {documents.length === 0 ? (
+        <View style={[styles.searchWrap, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          <MaterialCommunityIcons name="magnify" size={18} color={colors.icon} />
+          <TextInput
+            value={typeQuery}
+            onChangeText={setTypeQuery}
+            placeholder="Filter by type of document"
+            placeholderTextColor={colors.icon}
+            autoCapitalize="characters"
+            style={[styles.searchInput, { color: colors.text }]}
+          />
+          {typeQuery ? (
+            <TouchableOpacity onPress={() => setTypeQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialCommunityIcons name="close-circle" size={18} color={colors.icon} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {filteredDocuments.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
             <MaterialCommunityIcons name="file-document-outline" size={52} color={colors.icon} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {role === 'USER' ? 'No documents scanned yet' : 'No reference documents yet'}
+              {documents.length === 0
+                ? (role === 'USER' ? 'No documents scanned yet' : 'No reference documents yet')
+                : 'No matching document type'}
             </Text>
             <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              {role === 'USER'
-                ? 'Scan your first document to see it here.'
-                : 'Upload official documents so normal users can be verified.'}
+              {documents.length === 0
+                ? (role === 'USER'
+                  ? 'Scan your first document to see it here.'
+                  : 'Upload official documents so normal users can be verified.')
+                : 'Try another type, like TRANSCRIPT or DEGREE.'}
             </Text>
             {role !== 'USER' ? (
               <TouchableOpacity
@@ -113,7 +141,7 @@ export default function DocumentsScreen({ navigation }) {
           </View>
         ) : (
           <FlatList
-            data={documents}
+            data={filteredDocuments}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
@@ -180,6 +208,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 12,
     fontWeight: '600',
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    marginLeft: 8,
   },
   listContent: {
     paddingHorizontal: 0,
