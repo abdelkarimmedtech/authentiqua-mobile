@@ -14,6 +14,8 @@ import SecurityScreen from '../screens/main/SecurityScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
 import AppearanceScreen from '../screens/main/AppearanceScreen';
 import VerificationResultsScreen from '../screens/main/VerificationResultsScreen';
+import DownloadCertificateScreen from '../screens/main/DownloadCertificateScreen';
+import ShareVerificationScreen from '../screens/main/ShareVerificationScreen';
 import UniversityDashboardScreen from '../screens/main/UniversityDashboardScreen';
 import DocumentDetailScreen from '../screens/main/DocumentDetailScreen';
 import UniversityReferenceUploadScreen from '../screens/main/UniversityReferenceUploadScreen';
@@ -45,6 +47,8 @@ export default function MainNavigator() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Appearance" component={AppearanceScreen} />
       <Stack.Screen name="VerificationResults" component={VerificationResultsScreen} />
+      <Stack.Screen name="DownloadCertificate" component={DownloadCertificateScreen} />
+      <Stack.Screen name="ShareVerification" component={ShareVerificationScreen} />
       <Stack.Screen name="UniversityDashboard" component={UniversityDashboardScreen} />
       <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
       <Stack.Screen name="UniversityReferenceUpload" component={UniversityReferenceUploadScreen} />

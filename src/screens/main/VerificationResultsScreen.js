@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
+import { generateCertificatePdf, saveCertificateToLocalStorage } from '../../utils/certificate';
 
 export default function VerificationResultsScreen({ navigation, route }) {
+  const [downloading, setDownloading] = useState(false);
   const verificationId = route?.params?.id || 'AUTH-8829-XJ2';
   const status = route?.params?.status || 'Verified';
   const confidence = route?.params?.confidence || 98;
@@ -18,6 +22,41 @@ export default function VerificationResultsScreen({ navigation, route }) {
 
   const staffName = meta?.staffName || 'Verification Reviewer';
   const staffUniversity = meta?.staffUniversity || meta?.university || 'University';
+  const navParams = { id: verificationId, status, confidence, meta };
+  const certificateParams = {
+    verificationId,
+    status,
+    confidence,
+    university: staffUniversity,
+  };
+
+  const handleDownloadCertificate = async () => {
+    try {
+      setDownloading(true);
+      const savedPath = await saveCertificateToLocalStorage(certificateParams);
+      Alert.alert('Certificate downloaded', `Saved to:\n${savedPath}`);
+    } catch (error) {
+      try {
+        const pdfUri = await generateCertificatePdf(certificateParams);
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(pdfUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save certificate to Files',
+            UTI: 'com.adobe.pdf',
+          });
+          Alert.alert('Share opened', 'Choose "Save to Files" to keep it locally.');
+          return;
+        }
+      } catch (fallbackError) {}
+      Alert.alert(
+        'Download failed',
+        `Could not save certificate locally.${error?.message ? `\n\nReason: ${error.message}` : ''}`
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -96,13 +135,24 @@ export default function VerificationResultsScreen({ navigation, route }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.downloadBtn}>
-          <MaterialCommunityIcons name="download" size={18} color="#FFFFFF" />
-          <Text style={styles.downloadText}>Download Certificate</Text>
+        <TouchableOpacity
+          style={styles.downloadBtn}
+          onPress={handleDownloadCertificate}
+          disabled={downloading}
+        >
+          <MaterialCommunityIcons name={downloading ? 'progress-clock' : 'download'} size={18} color="#FFFFFF" />
+          <Text style={styles.downloadText}>{downloading ? 'Downloading...' : 'Download Certificate'}</Text>
         </TouchableOpacity>
 
         <View style={styles.secondaryActions}>
-          <TouchableOpacity style={styles.secondaryBtn}>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() =>
+              navigation?.push
+                ? navigation.push('ShareVerification', navParams)
+                : navigation?.navigate('ShareVerification', navParams)
+            }
+          >
             <MaterialCommunityIcons name="share-variant" size={16} color="#E6EEF8" />
             <Text style={styles.secondaryText}>Share</Text>
           </TouchableOpacity>
