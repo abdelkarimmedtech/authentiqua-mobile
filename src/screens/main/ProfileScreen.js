@@ -24,8 +24,6 @@ const PREFERENCE_ITEMS = [
   { id: 'appearance', icon: 'theme-light-dark',         label: 'Appearance',            rightText: 'Dark Mode' },
 ];
 
-const RESOURCE_ITEMS = [];
-
 function SettingsSection({ title, items, navigation, colors }) {
   const handleItemPress = (itemId) => {
     switch(itemId) {
@@ -99,10 +97,7 @@ export default function ProfileScreen({ navigation }) {
           <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
-        <TouchableOpacity style={styles.editBtn}>
-          <MaterialCommunityIcons name="pencil-outline" size={16} color="#0E6CFF" />
-          <Text style={[styles.editBtnText]}>Edit</Text>
-        </TouchableOpacity>
+        <View style={styles.backButton} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -131,7 +126,6 @@ export default function ProfileScreen({ navigation }) {
 
         <SettingsSection title="ACCOUNT"     items={ACCOUNT_ITEMS} navigation={navigation} colors={colors} />
         <SettingsSection title="PREFERENCES" items={PREFERENCE_ITEMS} navigation={navigation} colors={colors} />
-        <SettingsSection title="RESOURCES"   items={RESOURCE_ITEMS} navigation={navigation} colors={colors} />
 
         <TouchableOpacity style={[styles.logoutBtn]} onPress={signOut}>
           <MaterialCommunityIcons name="logout" size={18} color="#FF4D4D" />
@@ -179,8 +173,6 @@ const styles = StyleSheet.create({
   header:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1 },
   backButton:        { padding: 8 },
   headerTitle:       { fontSize: 20, fontWeight: '800' },
-  editBtn:           { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editBtnText:       { color: '#0E6CFF', fontSize: 15, fontWeight: '600' },
 
   scrollContent:     { paddingHorizontal: 20, paddingBottom: 120 },
 
