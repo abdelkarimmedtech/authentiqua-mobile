@@ -1,7 +1,8 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
+import BackgroundAnimation from '../../components/BackgroundAnimation';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getThemeColors } from '../../utils/themeColors';
 import { AuthContext } from '../../context/AuthContext';
@@ -37,26 +38,37 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: colors.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.inner}>
-        <Text style={[styles.title, { color: '#00FF99' }]}>Create account</Text>
+    <BackgroundAnimation>
+      <KeyboardAvoidingView style={dynamicSignupStyles(colors).container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={dynamicSignupStyles(colors).inner}>
+          <Text style={dynamicSignupStyles(colors).title}>Create account</Text>
 
-        <CustomInput label="Email" value={email} onChangeText={setEmail} placeholder="you@company.com" />
-        <CustomInput label="Password" value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry />
-        <CustomInput label="Confirm" value={confirm} onChangeText={setConfirm} placeholder="••••••" secureTextEntry />
+          <CustomInput label="Email" value={email} onChangeText={setEmail} placeholder="you@company.com" error={null} />
+          <CustomInput label="Password" value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry />
+          <CustomInput label="Confirm" value={confirm} onChangeText={setConfirm} placeholder="••••••" secureTextEntry />
 
-        {error ? <Text style={[styles.error]}>{error}</Text> : null}
+          {error ? <Text style={dynamicSignupStyles(colors).error}>{error}</Text> : null}
 
-        <CustomButton title={loading ? 'Creating...' : 'Sign Up'} onPress={onSubmit} disabled={loading} style={{ marginTop: 8 }} />
+          <CustomButton title={loading ? 'Creating...' : 'Sign Up'} onPress={onSubmit} disabled={loading} style={{ marginTop: 8 }} />
 
-      </View>
-    </KeyboardAvoidingView>
+          <View style={dynamicSignupStyles(colors).row}>
+            <Text style={dynamicSignupStyles(colors).muted}>Already have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginLeft: 8 }}>
+              <Text style={dynamicSignupStyles(colors).link}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </BackgroundAnimation>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
+const dynamicSignupStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: 'transparent' },
   inner: { padding: 24, flex: 1, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 14 },
+  title: { color: '#00FF99', fontSize: 28, fontWeight: '800', marginBottom: 20 },
+  row: { flexDirection: 'row', marginTop: 16, alignItems: 'center' },
+  muted: { color: colors.textSecondary },
+  link: { color: '#0E6CFF', fontWeight: '700' },
   error: { color: '#FF6B6B', marginTop: 8 }
 });

@@ -16,15 +16,14 @@ import { getUserDisplayName, getUserRole } from '../../utils/user';
 
 const ACCOUNT_ITEMS = [
   { id: 'account', icon: 'account-circle-outline', label: 'Account Information',  rightText: null },
-  { id: 'security', icon: 'shield-check-outline',   label: 'Security & Biometrics', rightText: 'Face ID On' },
+  { id: 'security', icon: 'shield-check-outline',   label: 'Security & Biometrics', rightText: null },
 ];
 
-const PREFERENCE_ITEMS = [
-  { id: 'notifications', icon: 'bell-outline',            label: 'Notification Settings', rightText: null },
-  { id: 'appearance', icon: 'theme-light-dark',         label: 'Appearance',            rightText: 'Dark Mode' },
+const LEGAL_ITEMS = [
+  { id: 'privacy', icon: 'shield-document-outline', label: 'Privacy Policy', rightText: null },
 ];
 
-function SettingsSection({ title, items, navigation, colors }) {
+function SettingsSection({ title, items, navigation, colors, theme }) {
   const handleItemPress = (itemId) => {
     switch(itemId) {
       case 'account':
@@ -39,6 +38,9 @@ function SettingsSection({ title, items, navigation, colors }) {
       case 'appearance':
         navigation.navigate('Appearance');
         break;
+      case 'privacy':
+        navigation.navigate('PrivacyPolicy');
+        break;
       default:
         break;
     }
@@ -48,30 +50,36 @@ function SettingsSection({ title, items, navigation, colors }) {
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{title}</Text>
       <View style={[styles.sectionCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-        {items.map((item, index) => (
-          <TouchableOpacity
-            key={item.label}
-            style={[
-              styles.settingsRow,
-              index < items.length - 1 && { borderBottomColor: colors.border, ...styles.settingsRowBorder },
-            ]}
-            onPress={() => handleItemPress(item.id)}
-          >
-            <View style={styles.settingsLeft}>
-              <View style={[styles.settingsIconWrap, { backgroundColor: colors.optionBg }]}>
-                <MaterialCommunityIcons name={item.icon} size={18} color="#0E6CFF" />
+        {items.map((item, index) => {
+          // Override rightText for dynamic content
+          let displayText = item.rightText;
+          if (item.id === 'appearance') displayText = theme === 'light' ? 'Light Mode' : 'Dark Mode';
+          
+          return (
+            <TouchableOpacity
+              key={item.label}
+              style={[
+                styles.settingsRow,
+                index < items.length - 1 && { borderBottomColor: colors.border, ...styles.settingsRowBorder },
+              ]}
+              onPress={() => handleItemPress(item.id)}
+            >
+              <View style={styles.settingsLeft}>
+                <View style={[styles.settingsIconWrap, { backgroundColor: colors.optionBg }]}>
+                  <MaterialCommunityIcons name={item.icon} size={18} color="#0E6CFF" />
+                </View>
+                <Text style={[styles.settingsLabel, { color: colors.text }]}>{item.label}</Text>
               </View>
-              <Text style={[styles.settingsLabel, { color: colors.text }]}>{item.label}</Text>
-            </View>
 
-            <View style={styles.settingsRight}>
-              {item.rightText && (
-                <Text style={[styles.settingsRightText]}>{item.rightText}</Text>
-              )}
-              <MaterialCommunityIcons name="chevron-right" size={14} color={colors.icon} />
-            </View>
-          </TouchableOpacity>
-        ))}
+              <View style={styles.settingsRight}>
+                {displayText && (
+                  <Text style={[styles.settingsRightText]}>{displayText}</Text>
+                )}
+                <MaterialCommunityIcons name="chevron-right" size={14} color={colors.icon} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -87,6 +95,11 @@ export default function ProfileScreen({ navigation }) {
   const role = useMemo(() => getUserRole(user), [user]);
   const university = user?.profile?.university || '';
   const email = user?.email || '';
+
+  const PREFERENCE_ITEMS = useMemo(() => [
+    { id: 'notifications', icon: 'bell-outline', label: 'Notification Settings', rightText: null },
+    { id: 'appearance', icon: 'theme-light-dark', label: 'Appearance', rightText: null },
+  ], []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -124,8 +137,9 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        <SettingsSection title="ACCOUNT"     items={ACCOUNT_ITEMS} navigation={navigation} colors={colors} />
-        <SettingsSection title="PREFERENCES" items={PREFERENCE_ITEMS} navigation={navigation} colors={colors} />
+        <SettingsSection title="ACCOUNT"     items={ACCOUNT_ITEMS} navigation={navigation} colors={colors} theme={theme} />
+        <SettingsSection title="PREFERENCES" items={PREFERENCE_ITEMS} navigation={navigation} colors={colors} theme={theme} />
+        <SettingsSection title="LEGAL"       items={LEGAL_ITEMS} navigation={navigation} colors={colors} theme={theme} />
 
         <TouchableOpacity style={[styles.logoutBtn]} onPress={signOut}>
           <MaterialCommunityIcons name="logout" size={18} color="#FF4D4D" />

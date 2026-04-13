@@ -11,8 +11,10 @@ import HelpScreen from '../screens/main/HelpScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import AccountInfoScreen from '../screens/main/AccountInfoScreen';
 import SecurityScreen from '../screens/main/SecurityScreen';
+import ChangePasswordScreen from '../screens/main/ChangePasswordScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
 import AppearanceScreen from '../screens/main/AppearanceScreen';
+import PrivacyPolicyScreen from '../screens/main/PrivacyPolicyScreen';
 import VerificationResultsScreen from '../screens/main/VerificationResultsScreen';
 import DownloadCertificateScreen from '../screens/main/DownloadCertificateScreen';
 import ShareVerificationScreen from '../screens/main/ShareVerificationScreen';
@@ -44,8 +46,10 @@ export default function MainNavigator() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="AccountInfo" component={AccountInfoScreen} />
       <Stack.Screen name="Security" component={SecurityScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Appearance" component={AppearanceScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="VerificationResults" component={VerificationResultsScreen} />
       <Stack.Screen name="DownloadCertificate" component={DownloadCertificateScreen} />
       <Stack.Screen name="ShareVerification" component={ShareVerificationScreen} />

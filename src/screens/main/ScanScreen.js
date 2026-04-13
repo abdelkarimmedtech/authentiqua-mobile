@@ -278,7 +278,11 @@ export default function ScanScreen({ navigation, route }) {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
+          </TouchableOpacity>
           <Text style={styles.title}>Authentiqua Scan</Text>
+          <View style={{ width: 28 }} />
         </View>
 
         <View style={styles.previewBox}>
@@ -381,7 +385,16 @@ export default function ScanScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0A0F1A' },
   container: { flex: 1, backgroundColor: '#0A0F1A' },
-  header: { padding: 18, alignItems: 'center', backgroundColor: '#0F1B2E' },
+  header: { 
+    padding: 18, 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+    backgroundColor: '#0F1B2E',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(14, 108, 255, 0.1)'
+  },
+  backBtn: { padding: 8 },
   title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
   
   previewBox: {

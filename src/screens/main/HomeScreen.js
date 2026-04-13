@@ -127,10 +127,6 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.drawerOverlay}>
           <TouchableOpacity style={styles.drawerBackdrop} onPress={() => setDrawerVisible(false)} />
           <View style={[styles.drawerMenu, { backgroundColor: colors.cardBg }]}>
-            <TouchableOpacity style={[styles.drawerItem, { backgroundColor: colors.optionBg }]} onPress={() => { navigation.navigate('Settings'); setDrawerVisible(false); }}>
-              <MaterialCommunityIcons name="cog" size={24} color={colors.text} />
-              <Text style={[styles.drawerLabel, { color: colors.text }]}>Settings</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={[styles.drawerItem, { backgroundColor: colors.optionBg }]} onPress={() => { navigation.navigate('Help'); setDrawerVisible(false); }}>
               <MaterialCommunityIcons name="help-circle" size={24} color={colors.text} />
               <Text style={[styles.drawerLabel, { color: colors.text }]}>Help</Text>

@@ -1,15 +1,70 @@
-import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import React, { useContext, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getThemeColors } from '../../utils/themeColors';
 
 export default function SecurityScreen({ navigation }) {
   const { theme } = useContext(ThemeContext);
   const colors = getThemeColors(theme);
-  const [biometricEnabled, setBiometricEnabled] = useState(true);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load settings from AsyncStorage on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const biometric = await AsyncStorage.getItem('biometricEnabled');
+      const twoFactor = await AsyncStorage.getItem('twoFactorEnabled');
+      
+      if (biometric !== null) setBiometricEnabled(biometric === 'true');
+      if (twoFactor !== null) setTwoFactorEnabled(twoFactor === 'true');
+    } catch (error) {
+      console.error('Error loading security settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBiometricChange = async (value) => {
+    try {
+      setBiometricEnabled(value);
+      await AsyncStorage.setItem('biometricEnabled', String(value));
+      
+      if (value) {
+        Alert.alert('Face ID / Fingerprint', 'Biometric authentication has been enabled for your account.');
+      } else {
+        Alert.alert('Face ID / Fingerprint', 'Biometric authentication has been disabled.');
+      }
+    } catch (error) {
+      console.error('Error saving biometric setting:', error);
+      Alert.alert('Error', 'Failed to save biometric setting');
+      setBiometricEnabled(!value); // Revert on error
+    }
+  };
+
+  const handleTwoFactorChange = async (value) => {
+    try {
+      setTwoFactorEnabled(value);
+      await AsyncStorage.setItem('twoFactorEnabled', String(value));
+      
+      if (value) {
+        Alert.alert('Two-Factor Authentication', 'Two-factor authentication has been enabled. You will receive verification codes via email.');
+      } else {
+        Alert.alert('Two-Factor Authentication', 'Two-factor authentication has been disabled.');
+      }
+    } catch (error) {
+      console.error('Error saving 2FA setting:', error);
+      Alert.alert('Error', 'Failed to save two-factor setting');
+      setTwoFactorEnabled(!value); // Revert on error
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -35,7 +90,7 @@ export default function SecurityScreen({ navigation }) {
               </View>
               <Switch
                 value={biometricEnabled}
-                onValueChange={setBiometricEnabled}
+                onValueChange={handleBiometricChange}
                 trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
                 thumbColor={biometricEnabled ? '#0E6CFF' : colors.icon}
               />
@@ -56,7 +111,7 @@ export default function SecurityScreen({ navigation }) {
               </View>
               <Switch
                 value={twoFactorEnabled}
-                onValueChange={setTwoFactorEnabled}
+                onValueChange={handleTwoFactorChange}
                 trackColor={{ false: colors.border, true: 'rgba(14, 108, 255, 0.5)' }}
                 thumbColor={twoFactorEnabled ? '#0E6CFF' : colors.icon}
               />
@@ -66,7 +121,11 @@ export default function SecurityScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PASSWORD</Text>
-          <TouchableOpacity style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          <TouchableOpacity 
+            style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('ChangePassword')}
+            activeOpacity={0.7}
+          >
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
                 <MaterialCommunityIcons name="lock-reset" size={24} color="#0E6CFF" />

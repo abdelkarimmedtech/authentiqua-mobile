@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -18,6 +18,7 @@ export default function AllActivityScreen({ navigation }) {
   const colors = getThemeColors(theme);
   const ds = dynamicStyles(colors);
   const [activeTab, setActiveTab] = useState('history');
+  const [typeQuery, setTypeQuery] = useState('');
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const role = useMemo(() => getUserRole(user), [user]);
@@ -31,6 +32,18 @@ export default function AllActivityScreen({ navigation }) {
     });
     return () => unsub?.();
   }, [user?.uid]);
+
+  const filteredActivities = useMemo(() => {
+    const q = typeQuery.trim().toUpperCase();
+    if (!q) return activities;
+    return activities.filter((activity) => {
+      const docType = activity.details?.documentType || '';
+      const university = activity.details?.university || '';
+      const typeStr = String(docType).toUpperCase();
+      const uniStr = String(university).toUpperCase();
+      return typeStr.includes(q) || uniStr.includes(q);
+    });
+  }, [activities, typeQuery]);
 
   const renderActivity = ({ item }) => {
     const statusColor = item.status === 'VERIFIED' || item.status === 'SUCCESS' ? '#00FF99' : item.status === 'PENDING' ? '#FFB946' : '#FF6B6B';
@@ -72,12 +85,29 @@ export default function AllActivityScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
+      <View style={[ds.searchWrap, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+        <MaterialCommunityIcons name="magnify" size={18} color={colors.icon} />
+        <TextInput
+          value={typeQuery}
+          onChangeText={setTypeQuery}
+          placeholder="Filter by university or type"
+          placeholderTextColor={colors.icon}
+          autoCapitalize="characters"
+          style={[ds.searchInput, { color: colors.text }]}
+        />
+        {typeQuery ? (
+          <TouchableOpacity onPress={() => setTypeQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialCommunityIcons name="close-circle" size={18} color={colors.icon} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
       <FlatList
-        data={activities}
+        data={filteredActivities}
         keyExtractor={(item) => item.id}
         renderItem={renderActivity}
         style={ds.list}
-        contentContainerStyle={activities.length === 0 ? ds.emptyContainer : ds.listContent}
+        contentContainerStyle={filteredActivities.length === 0 ? ds.emptyContainer : ds.listContent}
         scrollEnabled={true}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -139,6 +169,22 @@ const dynamicStyles = (colors) => StyleSheet.create({
   },
   backButton: { padding: 8 },
   title: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    marginHorizontal: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   list: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: 16, paddingBottom: 120 },
   emptyContainer: { padding: 16, paddingBottom: 120, flexGrow: 1, justifyContent: 'center' },

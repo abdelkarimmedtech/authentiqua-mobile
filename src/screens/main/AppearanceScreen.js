@@ -1,5 +1,5 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useContext, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,46 +12,56 @@ export default function AppearanceScreen({ navigation }) {
   const colors = getThemeColors(theme);
 
   const handleThemeChange = async (mode) => {
+    if (theme === mode) return; // Already on this theme
+    
     setLoading(true);
     try {
       await AsyncStorage.setItem('selectedTheme', mode);
       setTheme(mode);
+      
+      const themeName = mode === 'light' ? 'Light Mode' : 'Dark Mode';
+      Alert.alert('Theme Changed', `Switched to ${themeName}`);
     } catch (error) {
       console.error('Error saving theme:', error);
+      Alert.alert('Error', 'Failed to change theme');
     } finally {
       setLoading(false);
     }
   };
 
-  const ThemeOption = ({ mode, label, description, icon }) => (
-    <TouchableOpacity
-      style={[
-        styles.themeOption,
-        { backgroundColor: colors.optionBg, borderColor: colors.border },
-        theme === mode && styles.themeOptionActive
-      ]}
-      onPress={() => handleThemeChange(mode)}
-      disabled={loading}
-      activeOpacity={0.7}
-    >
-      <View style={styles.themeOptionContent}>
-        <MaterialCommunityIcons
-          name={icon}
-          size={32}
-          color={theme === mode ? '#0E6CFF' : colors.icon}
-        />
-        <View style={styles.themeInfo}>
-          <Text style={[styles.themeLabel, { color: colors.text }]}>{label}</Text>
-          <Text style={[styles.themeDesc, { color: colors.textSecondary }]}>
-            {description}
-          </Text>
+  const ThemeOption = ({ mode, label, description, icon }) => {
+    const isSelected = theme === mode;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.themeOption,
+          { backgroundColor: colors.optionBg, borderColor: colors.border },
+          isSelected && { borderColor: '#0E6CFF', borderWidth: 2 }
+        ]}
+        onPress={() => handleThemeChange(mode)}
+        disabled={loading}
+        activeOpacity={0.7}
+      >
+        <View style={styles.themeOptionContent}>
+          <MaterialCommunityIcons
+            name={icon}
+            size={32}
+            color={isSelected ? '#0E6CFF' : colors.icon}
+          />
+          <View style={styles.themeInfo}>
+            <Text style={[styles.themeLabel, { color: colors.text }]}>{label}</Text>
+            <Text style={[styles.themeDesc, { color: colors.textSecondary }]}>
+              {description}
+            </Text>
+          </View>
         </View>
-      </View>
-      {theme === mode && (
-        <MaterialCommunityIcons name="check-circle" size={24} color="#0E6CFF" />
-      )}
-    </TouchableOpacity>
-  );
+        {isSelected && (
+          <MaterialCommunityIcons name="check-circle" size={24} color="#0E6CFF" />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
