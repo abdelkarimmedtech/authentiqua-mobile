@@ -40,6 +40,18 @@ export default function ResultScreen({ route, navigation }) {
           </View>
         ) : null}
 
+        {(result.modelVersion || result.notes) ? (
+          <View style={dynamicStyles(colors).metaCard}>
+            <Text style={dynamicStyles(colors).metaTitle}>AI model details</Text>
+            {result.modelVersion ? (
+              <Text style={dynamicStyles(colors).metaRow}>Model: <Text style={dynamicStyles(colors).metaValue}>{result.modelVersion}</Text></Text>
+            ) : null}
+            {result.notes ? (
+              <Text style={dynamicStyles(colors).metaRow}>Notes: <Text style={dynamicStyles(colors).metaValue}>{result.notes}</Text></Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={dynamicStyles(colors).actions}>
           <CustomButton
             title="View Details"

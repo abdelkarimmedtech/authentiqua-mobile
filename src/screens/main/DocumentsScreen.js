@@ -37,7 +37,12 @@ export default function DocumentsScreen({ navigation }) {
     const uni = user?.profile?.university;
     if (!uni) return;
     const unsub = onUniversityReferenceDocumentsChange(uni, (res) => {
-      setDocuments(res?.documents || []);
+      if (res.success) {
+        setDocuments(res.documents || []);
+      } else {
+        console.error('❌ Error loading reference documents:', res.error);
+        setDocuments([]);
+      }
     });
     return () => unsub?.();
   }, [user?.uid, user?.profile?.university, role]);

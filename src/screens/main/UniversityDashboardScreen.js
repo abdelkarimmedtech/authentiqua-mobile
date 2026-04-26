@@ -10,7 +10,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
-import { onUniversityReferenceDocumentsChange } from '../../../backend/firestore';
+import { onUniversityReferenceDocumentsChange, onPendingDocumentsForUniversityChange } from '../../../backend/firestore';
 import { getUserDisplayName } from '../../utils/user';
 
 function ReferenceCard({ refDoc }) {
@@ -41,13 +41,32 @@ export default function UniversityDashboardScreen({ navigation }) {
   const university = user?.profile?.university || '';
   const displayName = useMemo(() => getUserDisplayName(user), [user]);
   const [referenceDocs, setReferenceDocs] = useState([]);
+  const [pendingDocs, setPendingDocs] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!university) return;
     const unsub = onUniversityReferenceDocumentsChange(university, (res) => {
-      setReferenceDocs(res?.documents || []);
+      if (res.success) {
+        setReferenceDocs(res.documents || []);
+      } else {
+        console.error('❌ Error loading university reference documents:', res.error);
+        setReferenceDocs([]);
+      }
+    });
+    return () => unsub?.();
+  }, [university]);
+
+  useEffect(() => {
+    if (!university) return;
+    const unsub = onPendingDocumentsForUniversityChange(university, (res) => {
+      if (res.success) {
+        setPendingDocs(res.documents || []);
+      } else {
+        console.error('❌ Error loading university pending documents:', res.error);
+        setPendingDocs([]);
+      }
     });
     return () => unsub?.();
   }, [university]);
@@ -93,6 +112,28 @@ export default function UniversityDashboardScreen({ navigation }) {
             >
               <MaterialCommunityIcons name="upload" size={18} color="#FFFFFF" />
               <Text style={styles.uploadBtnText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.pendingCard}>
+          <View style={styles.pendingRow}>
+            <View>
+              <Text style={styles.pendingLabel}>Documents pending review</Text>
+              <View style={styles.pendingCountRow}>
+                <Text style={styles.pendingCount}>{pendingDocs.length}</Text>
+                <View style={[styles.todayBadge, { backgroundColor: 'rgba(245,166,35,0.15)', borderColor: 'rgba(245,166,35,0.3)' }]}>
+                  <Text style={[styles.todayText, { color: '#F5A623' }]}>PENDING</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.uploadBtn}
+              onPress={() => navigation.navigate('StaffDocumentReview')}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons name="clipboard-check" size={18} color="#FFFFFF" />
+              <Text style={styles.uploadBtnText}>Review</Text>
             </TouchableOpacity>
           </View>
         </View>

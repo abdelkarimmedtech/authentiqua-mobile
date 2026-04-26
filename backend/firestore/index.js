@@ -31,6 +31,7 @@ export {
 // Document Service
 export {
   uploadDocument,
+  uploadFileToStorage,
   getUserDocuments,
   getDocument,
   updateDocument,
@@ -40,6 +41,11 @@ export {
   getUniversityReferenceDocuments,
   onUniversityReferenceDocumentsChange,
   hasReferenceDocument,
+  getPendingDocuments,
+  onPendingDocumentsForUniversityChange,
+  onPendingDocumentsChange,
+  approveDocument,
+  rejectDocument,
 } from './services/documentService';
 
 // Activity Service
@@ -69,6 +75,11 @@ export {
 export {
   initializeFirestoreCollections,
 } from './services/initService';
+
+// Admin Service
+export {
+  fetchAdminStats,
+} from './services/adminService';
 
 // Data Models
 export { UserModel, DocumentModel, ActivityModel, SettingsModel, requiredIndexes, storagePaths } from './models/dataModels';

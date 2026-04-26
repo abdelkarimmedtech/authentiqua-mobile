@@ -34,6 +34,7 @@ export default function ScanScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   const [university, setUniversity] = useState(defaultUniversity);
@@ -57,6 +58,7 @@ export default function ScanScreen({ navigation, route }) {
 
   const pickImage = async () => {
     try {
+      console.log('Opening gallery...');
       const res = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (res.status !== 'granted') {
         Alert.alert('Permission Denied', 'Media library permission is required to access your gallery');
@@ -64,19 +66,22 @@ export default function ScanScreen({ navigation, route }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 1,
         allowsMultiple: false
       });
 
       const cancelled = typeof result.cancelled !== 'undefined' ? result.cancelled : result.canceled;
       if (!cancelled && result.assets && result.assets.length > 0) {
+        console.log('Image selected:', result.assets[0].uri);
         setImage(result.assets[0].uri);
         setShowCamera(false);
+      } else {
+        console.log('Gallery cancelled or no image selected');
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not access gallery. Please try again.');
       console.error('❌ Gallery error:', error?.message || 'Unknown error');
+      Alert.alert('Error', 'Could not access gallery. Please try again.');
     }
   };
 
@@ -96,6 +101,7 @@ export default function ScanScreen({ navigation, route }) {
 
   const openCamera = async () => {
     try {
+      console.log('Opening camera...');
       if (!permission?.granted) {
         const result = await requestPermission();
         if (!result.granted) {
@@ -105,8 +111,8 @@ export default function ScanScreen({ navigation, route }) {
       }
       setShowCamera(true);
     } catch (error) {
-      Alert.alert('Error', 'Failed to open camera');
       console.error('❌ Camera open error:', error?.message || 'Unknown error');
+      Alert.alert('Error', 'Failed to open camera');
     }
   };
 
@@ -131,6 +137,11 @@ export default function ScanScreen({ navigation, route }) {
     }
   };
 
+  const getMimeType = (uri) => {
+    if (uri?.toLowerCase().endsWith('.pdf')) return 'application/pdf';
+    return 'image/jpeg';
+  };
+
   const onUpload = async () => {
     if (!image) return Alert.alert('Please pick or take a photo first');
     if (role !== 'USER') {
@@ -142,49 +153,56 @@ export default function ScanScreen({ navigation, route }) {
     if (!documentType) return Alert.alert('Missing type', 'Please choose a document type.');
     try {
       setLoading(true);
-      const baseResult = await scanImage(image);
       const uni = university.trim();
-
+      const baseResult = await scanImage(image, { documentType, university: uni });
       const refCheck = await hasReferenceDocument(uni, documentType);
       const hasRef = !!refCheck?.exists;
       const reference = refCheck?.reference || null;
-
-      const label = hasRef ? 'REAL' : 'FAKE';
-      const confidence = hasRef ? Math.max(baseResult.confidence || 0, 85) : Math.min(baseResult.confidence || 0, 55);
-      const status = hasRef ? 'VERIFIED' : 'REJECTED';
-
+      const aiLabel = baseResult.label || 'FAKE';
+      const aiConfidence = Number(baseResult.confidence || 0);
+      const finalLabel = hasRef ? 'REAL' : aiLabel;
+      const confidence = hasRef ? Math.max(aiConfidence, 85) : aiConfidence;
+      const status = finalLabel === 'REAL' ? 'VERIFIED' : 'REJECTED';
       const fileName = image.split('/').pop() || 'document';
       const uid = user?.uid;
+      const metadata = {
+        mimeType: getMimeType(image),
+      };
 
       const uploadRes = await uploadDocument(uid, {
         documentType,
         fileName,
-        fileUrl: image,
+        fileUri: image,
         status,
-        verificationNotes: hasRef ? 'Matched against official university reference document.' : 'No official reference document found for this university/type.',
+        verificationNotes: hasRef
+          ? 'Matched against official university reference document and verified by AI.'
+          : aiLabel === 'REAL'
+          ? 'AI model identified the document as authentic. No official reference record found.'
+          : 'AI model identified the document as fraudulent.',
         university: uni,
         isReference: false,
+        metadata,
       });
 
-      try {
-        await logActivity(uid, {
-          type: 'VERIFICATION',
-          status,
-          documentId: uploadRes?.documentId || null,
-          description: 'Document verification completed',
-          details: {
-            university: uni,
-            documentType,
-            label,
-            confidence,
-            referenceId: reference?.id || null,
-            referenceOwnerId: reference?.userId || null,
-          },
-        });
-      } catch (e) {}
+      await logActivity(uid, {
+        type: 'VERIFICATION',
+        status,
+        documentId: uploadRes?.documentId || null,
+        description: 'Document verification completed',
+        details: {
+          university: uni,
+          documentType,
+          label: finalLabel,
+          confidence,
+          aiLabel,
+          aiConfidence,
+          referenceId: reference?.id || null,
+          referenceOwnerId: reference?.userId || null,
+        },
+      });
 
       navigation.replace('Result', {
-        result: { label, confidence },
+        result: { label: finalLabel, confidence, modelVersion: baseResult.modelVersion, notes: baseResult.notes },
         documentId: uploadRes?.documentId || null,
         meta: {
           university: uni,
@@ -223,11 +241,12 @@ export default function ScanScreen({ navigation, route }) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.cameraContainer}>
-          <CameraView 
-            ref={cameraRef} 
+          <CameraView
+            ref={cameraRef}
             style={styles.camera}
             facing="back"
-            flashMode={flashOn ? 'on' : 'off'}
+            enableTorch={flashOn}
+            onCameraReady={() => setCameraReady(true)}
           />
           
           <View style={styles.cameraOverlay}>
@@ -242,7 +261,10 @@ export default function ScanScreen({ navigation, route }) {
           <View style={styles.cameraControls}>
             <TouchableOpacity
               style={styles.controlBtn}
-              onPress={() => setFlashOn(!flashOn)}
+              onPress={() => {
+                console.log('Toggling torch:', !flashOn);
+                setFlashOn(!flashOn);
+              }}
             >
               <MaterialCommunityIcons 
                 name={flashOn ? 'flash' : 'flash-off'} 
@@ -250,13 +272,14 @@ export default function ScanScreen({ navigation, route }) {
                 color={flashOn ? '#00FF99' : '#E6EEF8'} 
               />
               <Text style={[styles.controlLabel, flashOn && { color: '#00FF99' }]}>
-                {flashOn ? 'Flash On' : 'Flash Off'}
+                {flashOn ? 'Torch On' : 'Torch Off'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.captureBtn}
               onPress={takePicture}
+              disabled={!cameraReady}
             >
               <View style={styles.captureInner} />
             </TouchableOpacity>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CustomButton from '../../components/CustomButton';
 import { AuthContext } from '../../context/AuthContext';
@@ -68,8 +69,8 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
         type: 'application/pdf',
       });
 
-      if (result.canceled === false && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
+      if (result.type === 'success') {
+        const asset = result;
         setFileUri(asset.uri);
         setFileName(asset.name || asset.uri.split('/').pop() || 'reference.pdf');
       }
@@ -77,6 +78,11 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
       console.error('❌ Reference PDF pick error:', error?.message || 'Unknown error');
       Alert.alert('Error', 'Failed to pick document');
     }
+  };
+
+  const getMimeType = (uri) => {
+    if (uri?.toLowerCase().endsWith('.pdf')) return 'application/pdf';
+    return 'image/jpeg';
   };
 
   const onUpload = async () => {
@@ -91,25 +97,30 @@ export default function UniversityReferenceUploadScreen({ navigation }) {
     try {
       setLoading(true);
       const uid = user?.uid;
-      await uploadDocument(uid, {
+      const fileInfo = await FileSystem.getInfoAsync(fileUri, { size: true });
+      const metadata = {
+        mimeType: getMimeType(fileUri),
+        size: fileInfo?.size || 0,
+      };
+
+      const uploadRes = await uploadDocument(uid, {
         documentType,
         fileName: fileName || 'reference',
-        fileUrl: fileUri,
+        fileUri,
         status: 'REFERENCE',
         university,
         isReference: true,
         staffName,
         staffRole,
+        metadata,
       });
 
-      try {
-        await logActivity(uid, {
-          type: 'REFERENCE_UPLOAD',
-          status: 'SUCCESS',
-          description: 'Reference document uploaded',
-          details: { university, documentType },
-        });
-      } catch (e) {}
+      await logActivity(uid, {
+        type: 'REFERENCE_UPLOAD',
+        status: 'SUCCESS',
+        description: 'Reference document uploaded',
+        details: { university, documentType, documentId: uploadRes.documentId },
+      });
 
       Alert.alert('Uploaded', 'Reference document uploaded successfully.');
       navigation.goBack();

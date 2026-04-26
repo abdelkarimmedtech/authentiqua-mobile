@@ -1,13 +1,16 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../../context/ThemeContext';
+import { AuthContext } from '../../context/AuthContext';
 import { getThemeColors } from '../../utils/themeColors';
+import { updateNotificationSettings, getUserSettings } from '../../../backend/firestore';
 
 export default function NotificationsScreen({ navigation }) {
   const { theme } = useContext(ThemeContext);
+  const { user } = useContext(AuthContext);
   const colors = getThemeColors(theme);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
@@ -15,13 +18,30 @@ export default function NotificationsScreen({ navigation }) {
   const [promoEnabled, setPromoEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load settings from AsyncStorage on mount
+  // Load settings from AsyncStorage and Firestore on mount
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [user]);
 
   const loadSettings = async () => {
     try {
+      // First try to load from Firestore
+      if (user?.uid) {
+        const result = await getUserSettings(user.uid);
+        if (result.success && result.data?.notifications) {
+          const notifications = result.data.notifications;
+          setPushEnabled(notifications.pushEnabled ?? true);
+          setEmailEnabled(notifications.emailEnabled ?? true);
+          setUpdateEnabled(notifications.updateEnabled ?? false);
+          setPromoEnabled(notifications.promoEnabled ?? false);
+          // Also save to AsyncStorage for offline access
+          await saveToAsyncStorage(notifications);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fallback to AsyncStorage
       const push = await AsyncStorage.getItem('pushNotificationsEnabled');
       const email = await AsyncStorage.getItem('emailNotificationsEnabled');
       const update = await AsyncStorage.getItem('documentUpdatesEnabled');
@@ -38,10 +58,37 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
+  const saveToAsyncStorage = async (notifications) => {
+    try {
+      await AsyncStorage.setItem('pushNotificationsEnabled', String(notifications.pushEnabled ?? true));
+      await AsyncStorage.setItem('emailNotificationsEnabled', String(notifications.emailEnabled ?? true));
+      await AsyncStorage.setItem('documentUpdatesEnabled', String(notifications.updateEnabled ?? false));
+      await AsyncStorage.setItem('promoNotificationsEnabled', String(notifications.promoEnabled ?? false));
+    } catch (error) {
+      console.error('Error saving to AsyncStorage:', error);
+    }
+  };
+
+  const syncToFirestore = async (notifications) => {
+    if (!user?.uid) return;
+    try {
+      await updateNotificationSettings(user.uid, notifications);
+    } catch (error) {
+      console.error('Error syncing to Firestore:', error);
+      Alert.alert('Sync Error', 'Settings saved locally but failed to sync to cloud.');
+    }
+  };
+
   const handlePushChange = async (value) => {
     try {
       setPushEnabled(value);
       await AsyncStorage.setItem('pushNotificationsEnabled', String(value));
+      await syncToFirestore({
+        pushEnabled: value,
+        emailEnabled,
+        updateEnabled,
+        promoEnabled,
+      });
     } catch (error) {
       console.error('Error saving push notification setting:', error);
       setPushEnabled(!value);
@@ -52,6 +99,12 @@ export default function NotificationsScreen({ navigation }) {
     try {
       setEmailEnabled(value);
       await AsyncStorage.setItem('emailNotificationsEnabled', String(value));
+      await syncToFirestore({
+        pushEnabled,
+        emailEnabled: value,
+        updateEnabled,
+        promoEnabled,
+      });
     } catch (error) {
       console.error('Error saving email notification setting:', error);
       setEmailEnabled(!value);
@@ -62,6 +115,12 @@ export default function NotificationsScreen({ navigation }) {
     try {
       setUpdateEnabled(value);
       await AsyncStorage.setItem('documentUpdatesEnabled', String(value));
+      await syncToFirestore({
+        pushEnabled,
+        emailEnabled,
+        updateEnabled: value,
+        promoEnabled,
+      });
     } catch (error) {
       console.error('Error saving document updates setting:', error);
       setUpdateEnabled(!value);
@@ -72,6 +131,12 @@ export default function NotificationsScreen({ navigation }) {
     try {
       setPromoEnabled(value);
       await AsyncStorage.setItem('promoNotificationsEnabled', String(value));
+      await syncToFirestore({
+        pushEnabled,
+        emailEnabled,
+        updateEnabled,
+        promoEnabled: value,
+      });
     } catch (error) {
       console.error('Error saving promo notification setting:', error);
       setPromoEnabled(!value);

@@ -37,10 +37,13 @@ export const DocumentModel = {
   uploadedAt: 'timestamp', // Document upload date
   updatedAt: 'timestamp', // Last status update
   expiryDate: 'timestamp', // Optional expiry date for documents
+  reviewedBy: 'string', // Staff ID who reviewed the document
+  reviewedAt: 'timestamp', // When the document was reviewed
   metadata: {
     size: 'number', // File size in bytes
     mimeType: 'string', // MIME type (application/pdf, image/jpeg, etc)
     pages: 'number', // Number of pages (if applicable)
+    storagePath: 'string', // Path in Firebase Storage
   }
 };
 

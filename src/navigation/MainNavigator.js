@@ -1,5 +1,6 @@
 import React, { useContext, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import HomeScreen from '../screens/main/HomeScreen';
 import ScanScreen from '../screens/main/ScanScreen';
 import ResultScreen from '../screens/main/ResultScreen';
@@ -21,7 +22,10 @@ import ShareVerificationScreen from '../screens/main/ShareVerificationScreen';
 import UniversityDashboardScreen from '../screens/main/UniversityDashboardScreen';
 import DocumentDetailScreen from '../screens/main/DocumentDetailScreen';
 import UniversityReferenceUploadScreen from '../screens/main/UniversityReferenceUploadScreen';
+import StaffDocumentReviewScreen from '../screens/main/StaffDocumentReviewScreen';
+import AdminDashboardScreen from '../screens/main/AdminDashboardScreen';
 import VerifyIdentityScreen from '../screens/auth/VerifyIdentityScreen';
+
 import { AuthContext } from '../context/AuthContext';
 import { getUserRole } from '../utils/user';
 
@@ -30,10 +34,19 @@ const Stack = createNativeStackNavigator();
 export default function MainNavigator() {
   const { user } = useContext(AuthContext);
   const role = useMemo(() => getUserRole(user), [user]);
-  const initialRouteName = role === 'USER' ? 'Home' : 'UniversityDashboard';
+
+  const initialRouteName =
+    role === 'USER'
+      ? 'Home'
+      : role === 'ADMIN'
+      ? 'AdminDashboard'
+      : 'UniversityDashboard';
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={initialRouteName}
+    >
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Scan" component={ScanScreen} />
       <Stack.Screen name="Camera" component={CameraScreen} />
@@ -56,6 +69,8 @@ export default function MainNavigator() {
       <Stack.Screen name="UniversityDashboard" component={UniversityDashboardScreen} />
       <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
       <Stack.Screen name="UniversityReferenceUpload" component={UniversityReferenceUploadScreen} />
+      <Stack.Screen name="StaffDocumentReview" component={StaffDocumentReviewScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
     </Stack.Navigator>
   );
 }

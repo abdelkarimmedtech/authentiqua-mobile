@@ -12,36 +12,76 @@ import {
   onSnapshot,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../config';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, app } from '../config';
+
+const storage = getStorage(app);
 
 const DOCUMENTS_COLLECTION = 'documents';
 
 /**
  * Upload scanned document
  */
+export const uploadFileToStorage = async (userId, fileUri, fileName, mimeType = 'application/octet-stream') => {
+  try {
+    if (!fileUri) {
+      throw new Error('No file URI provided for storage upload');
+    }
+
+    const response = await fetch(fileUri);
+    const fileBlob = await response.blob();
+    const timestamp = Date.now();
+    const storagePath = `documents/${userId}/${timestamp}_${fileName}`;
+    const fileRef = storageRef(storage, storagePath);
+
+    await uploadBytes(fileRef, fileBlob, { contentType: mimeType });
+    const downloadUrl = await getDownloadURL(fileRef);
+
+    return { success: true, downloadUrl, storagePath };
+  } catch (error) {
+    console.error('❌ Error uploading file to storage:', error.message || error);
+    throw error;
+  }
+};
+
 export const uploadDocument = async (userId, documentData) => {
   try {
+    let fileUrl = documentData.fileUrl || '';
+    let metadata = {
+      size: documentData.metadata?.size || 0,
+      mimeType: documentData.metadata?.mimeType || 'application/octet-stream',
+      pages: documentData.metadata?.pages || 0,
+    };
+
+    if (documentData.fileUri) {
+      const fileName = documentData.fileName || 'document';
+      const mimeType = documentData.metadata?.mimeType || 'application/octet-stream';
+      const storageResult = await uploadFileToStorage(userId, documentData.fileUri, fileName, mimeType);
+      fileUrl = storageResult.downloadUrl;
+      metadata = {
+        ...metadata,
+        mimeType,
+        storagePath: storageResult.storagePath,
+      };
+    }
+
     const docRef = await addDoc(collection(db, DOCUMENTS_COLLECTION), {
       userId,
       documentType: documentData.documentType || 'OTHER',
       fileName: documentData.fileName || 'document',
-      fileUrl: documentData.fileUrl || '',
+      fileUrl,
       status: documentData.status || 'PENDING',
       verificationNotes: documentData.verificationNotes || '',
       university: documentData.university || null,
       isReference: !!documentData.isReference,
       uploadedAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-      metadata: {
-        size: documentData.metadata?.size || 0,
-        mimeType: documentData.metadata?.mimeType || 'application/octet-stream',
-        pages: documentData.metadata?.pages || 0,
-      },
+      metadata,
     });
 
     return { success: true, documentId: docRef.id };
   } catch (error) {
-    console.error('❌ Error uploading document:', error.message);
+    console.error('❌ Error uploading document:', error.message || error);
     throw error;
   }
 };
@@ -132,8 +172,7 @@ export const onUserDocumentsChange = (userId, callback) => {
   try {
     const q = query(
       collection(db, DOCUMENTS_COLLECTION),
-      where('userId', '==', userId),
-      orderBy('uploadedAt', 'desc')
+      where('userId', '==', userId)
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -144,6 +183,8 @@ export const onUserDocumentsChange = (userId, callback) => {
           ...doc.data(),
         });
       });
+      // Sort by uploadedAt descending
+      documents.sort((a, b) => (b.uploadedAt?.toMillis?.() || 0) - (a.uploadedAt?.toMillis?.() || 0));
       callback({ success: true, documents });
     });
 
@@ -230,22 +271,30 @@ export const onUniversityReferenceDocumentsChange = (university, callback) => {
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const documents = [];
-      querySnapshot.forEach((d) => {
-        const data = d.data();
-        if (data?.isReference) {
-          documents.push({
-            id: d.id,
-            ...data,
-          });
-        }
-      });
-      documents.sort((a, b) => {
-        const am = a.uploadedAt?.toMillis?.() || 0;
-        const bm = b.uploadedAt?.toMillis?.() || 0;
-        return bm - am;
-      });
-      callback({ success: true, documents });
+      try {
+        const documents = [];
+        querySnapshot.forEach((d) => {
+          const data = d.data();
+          if (data?.isReference) {
+            documents.push({
+              id: d.id,
+              ...data,
+            });
+          }
+        });
+        documents.sort((a, b) => {
+          const am = a.uploadedAt?.toMillis?.() || 0;
+          const bm = b.uploadedAt?.toMillis?.() || 0;
+          return bm - am;
+        });
+        callback({ success: true, documents });
+      } catch (error) {
+        console.error('Error processing university reference documents snapshot:', error?.message || error);
+        callback({ success: false, error: error?.message || 'Failed to process documents' });
+      }
+    }, (error) => {
+      console.error('Error in university reference documents listener:', error?.message || error);
+      callback({ success: false, error: error?.message || 'Permission denied or query failed' });
     });
 
     return unsubscribe;
@@ -276,6 +325,153 @@ export const hasReferenceDocument = async (university, documentType) => {
     return { success: true, exists: !querySnapshot.empty, reference };
   } catch (error) {
     console.error('Error checking reference document:', error?.message || error);
+    throw error;
+  }
+};
+
+/**
+ * Get pending documents for a university (staff review)
+ */
+export const getPendingDocumentsForUniversity = async (university, limit = 50) => {
+  try {
+    const q = query(
+      collection(db, DOCUMENTS_COLLECTION),
+      where('university', '==', university),
+      where('status', '==', 'PENDING'),
+      where('isReference', '==', false),
+      orderBy('uploadedAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const documents = [];
+
+    querySnapshot.forEach((doc) => {
+      documents.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    return { success: true, documents: documents.slice(0, limit) };
+  } catch (error) {
+    console.error('Error getting pending documents for university:', error?.message || error);
+    throw error;
+  }
+};
+
+/**
+ * Real-time listener for pending documents for a university
+ */
+export const onPendingDocumentsForUniversityChange = (university, callback) => {
+  try {
+    const q = query(
+      collection(db, DOCUMENTS_COLLECTION),
+      where('university', '==', university),
+      where('status', '==', 'PENDING'),
+      where('isReference', '==', false),
+      orderBy('uploadedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      try {
+        const documents = [];
+        querySnapshot.forEach((doc) => {
+          documents.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
+        callback({ success: true, documents });
+      } catch (error) {
+        console.error('Error processing university pending documents snapshot:', error?.message || error);
+        callback({ success: false, error: error?.message || 'Failed to process documents' });
+      }
+    }, (error) => {
+      console.error('Error in university pending documents listener:', error?.message || error);
+      callback({ success: false, error: error?.message || 'Permission denied or query failed' });
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up pending documents listener:', error?.message || error);
+    throw error;
+  }
+};
+
+/**
+ * Real-time listener for all pending documents (admin use)
+ */
+export const onPendingDocumentsChange = (callback) => {
+  try {
+    const q = query(
+      collection(db, DOCUMENTS_COLLECTION),
+      where('status', '==', 'PENDING'),
+      where('isReference', '==', false),
+      orderBy('uploadedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      try {
+        const documents = [];
+        querySnapshot.forEach((doc) => {
+          documents.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
+        callback({ success: true, documents });
+      } catch (error) {
+        console.error('Error processing pending documents snapshot:', error?.message || error);
+        callback({ success: false, error: error?.message || 'Failed to process documents' });
+      }
+    }, (error) => {
+      console.error('Error in pending documents listener:', error?.message || error);
+      callback({ success: false, error: error?.message || 'Permission denied or query failed' });
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up all pending documents listener:', error?.message || error);
+    throw error;
+  }
+};
+
+/**
+ * Approve a document (staff action)
+ */
+export const approveDocument = async (documentId, staffId, notes = '') => {
+  try {
+    const updates = {
+      status: 'VERIFIED',
+      verificationNotes: notes,
+      reviewedBy: staffId,
+      reviewedAt: Timestamp.now(),
+    };
+
+    await updateDocument(documentId, updates);
+    return { success: true };
+  } catch (error) {
+    console.error('Error approving document:', error?.message || error);
+    throw error;
+  }
+};
+
+/**
+ * Reject a document (staff action)
+ */
+export const rejectDocument = async (documentId, staffId, notes = '') => {
+  try {
+    const updates = {
+      status: 'REJECTED',
+      verificationNotes: notes,
+      reviewedBy: staffId,
+      reviewedAt: Timestamp.now(),
+    };
+
+    await updateDocument(documentId, updates);
+    return { success: true };
+  } catch (error) {
+    console.error('Error rejecting document:', error?.message || error);
     throw error;
   }
 };

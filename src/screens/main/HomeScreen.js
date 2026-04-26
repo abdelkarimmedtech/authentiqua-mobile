@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../../context/AuthContext';
@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onUserDocumentsChange } from '../../../backend/firestore';
 import { getUserDisplayName, getUserRole } from '../../utils/user';
+import { useFocusEffect } from '@react-navigation/native';
 
 function formatType(t) {
   if (!t) return 'Document';
@@ -25,6 +26,7 @@ export default function HomeScreen({ navigation }) {
   const role = useMemo(() => getUserRole(user), [user]);
   const displayName = useMemo(() => getUserDisplayName(user), [user]);
   const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (role && role !== 'USER') {
@@ -32,18 +34,26 @@ export default function HomeScreen({ navigation }) {
     }
   }, [role, navigation]);
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    const unsub = onUserDocumentsChange(user.uid, (res) => {
-      const docs = (res?.documents || []).filter((d) => !d.isReference);
-      setDocuments(docs);
-    });
-    return () => unsub?.();
-  }, [user?.uid]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.uid) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const unsub = onUserDocumentsChange(user.uid, (res) => {
+        const docs = (res?.documents || []).filter((d) => !d.isReference);
+        setDocuments(docs);
+        setLoading(false);
+      });
+      return () => unsub?.();
+    }, [user?.uid])
+  );
 
   const totalUploaded = documents.length;
   const verifiedCount = documents.filter((d) => d.status === 'VERIFIED').length;
   const pendingCount = documents.filter((d) => d.status === 'PENDING').length;
+  const rejectedCount = documents.filter((d) => d.status === 'REJECTED').length;
   const recent = documents.slice(0, 3).map((d) => ({
     id: d.id,
     title: formatType(d.documentType),
