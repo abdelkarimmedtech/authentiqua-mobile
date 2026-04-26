@@ -1,4 +1,5 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from '../config';
 import { getUserProfile } from './userService';
 
@@ -9,10 +10,8 @@ export const fetchAdminStats = async () => {
   try {
     console.log('AdminService: Fetching admin statistics...');
 
-    // Debug: Check current user authentication and role
-    const { auth } = await import('firebase/auth');
-    const { getAuth } = await import('firebase/auth');
     const currentUser = getAuth().currentUser;
+
     console.log('AdminService: Current user UID:', currentUser?.uid);
     console.log('AdminService: Current user email:', currentUser?.email);
 
@@ -20,26 +19,43 @@ export const fetchAdminStats = async () => {
       throw new Error('No authenticated user found');
     }
 
-    if (currentUser?.uid) {
-      try {
-        const profileResult = await getUserProfile(currentUser.uid);
-        console.log('AdminService: User profile exists:', profileResult.success);
-        if (profileResult.success) {
-          console.log('AdminService: User role from Firestore:', profileResult.data?.role);
-          if (profileResult.data?.role !== 'ADMIN') {
-            throw new Error(`User is not an admin. Current role: ${profileResult.data?.role || 'none'}`);
-          }
-        } else {
-          throw new Error('Admin user profile not found in Firestore. Please complete onboarding first.');
-        }
-      } catch (profileError) {
-        console.log('AdminService: Error fetching user profile:', profileError.message);
-        throw profileError;
+    const profileResult = await getUserProfile(currentUser.uid);
+
+    console.log('AdminService: User profile exists:', profileResult.success);
+
+    if (!profileResult.success) {
+      throw new Error('Admin user profile not found in Firestore. Please complete onboarding first.');
+    }
+
+    console.log('AdminService: User role from Firestore:', profileResult.data?.role);
+
+    if (profileResult.data?.role !== 'ADMIN') {
+      throw new Error(`User is not an admin. Current role: ${profileResult.data?.role || 'none'}`);
+    }
+
+    const usersSnapshot = await getDocs(
+      collection(db, USERS_COLLECTION)
+    );
+
+    console.log('AdminService: Loaded users:', usersSnapshot.size);
+
+    const documentsSnapshot = await getDocs(
+      query(
+        collection(db, DOCUMENTS_COLLECTION),
+        where('isReference', '==', false)
+      )
+    );
+
+    console.log('AdminService: Loaded documents:', documentsSnapshot.size);
+
+    const pendingSnapshot = await getDocs(
+      query(
         collection(db, DOCUMENTS_COLLECTION),
         where('status', '==', 'PENDING'),
         where('isReference', '==', false)
       )
     );
+
     console.log('AdminService: Loaded pending documents:', pendingSnapshot.size);
 
     const verifiedSnapshot = await getDocs(
@@ -49,6 +65,7 @@ export const fetchAdminStats = async () => {
         where('isReference', '==', false)
       )
     );
+
     console.log('AdminService: Loaded verified documents:', verifiedSnapshot.size);
 
     return {
@@ -62,6 +79,7 @@ export const fetchAdminStats = async () => {
     };
   } catch (error) {
     console.error('❌ Error fetching admin stats:', error?.message || error);
+
     return {
       success: false,
       error: error?.message || 'Failed to fetch admin statistics',
