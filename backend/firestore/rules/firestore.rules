@@ -1,156 +1,185 @@
 /**
- * Firestore Security Rules for Authentiqua Mobile App
- * 
- * Role-Based Access Control:
- * - 'normal': Regular students/users - can only access their own data
- * - 'staff': University staff - can read admin collections (universities, fraud_cases, system_stats, templates)
- * - 'admin': Administrators - can create/update/delete admin collections
- * 
- * Rules Strategy:
- * - All users must be authenticated
- * - Users can only access their own personal data (documents, settings, activity)
- * - Staff and admin users get access to admin dashboard collections
- * - System documents (_system) bypass auth for collection initialization
+ * Firestore Security Rules for Authentiqa Mobile App
+ *
+ * Roles:
+ * - USER: can read/write only their own documents and account data
+ * - UNIVERSITY_STAFF: can read non-reference documents linked to their university
+ * - ADMIN: can read and manage admin dashboard data
  */
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // ==================== HELPER FUNCTIONS ====================
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
-    
+
     function isSystem(docId) {
       return docId == '_system';
     }
-    
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function getUserRole() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.exists ? userDoc.data.get('role', 'normal') : 'normal';
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? currentUserData().get('role', 'USER')
+        : 'USER';
     }
-    
-    function isStaff() {
-      let role = getUserRole();
-      return isAuthenticated() && (role == 'STAFF' || role == 'ADMIN');
+
+    function getUserUniversity() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? currentUserData().get('university', '')
+        : '';
     }
-    
+
     function isAdmin() {
-      let role = getUserRole();
-      return isAuthenticated() && role == 'ADMIN';
+      return isAuthenticated() && (getUserRole() == 'ADMIN' || getUserRole() == 'admin' || getUserRole() == 'Admin');
     }
-    
-    // ==================== USERS COLLECTION ====================
-    // Users can read and modify their own profiles
-    // System initialization document can bypass auth
-    // Admins can read all users for dashboard statistics
+
+    function isUniversityStaff() {
+      return isAuthenticated() && (
+        getUserRole() == 'UNIVERSITY_STAFF'
+        || getUserRole() == 'university_staff'
+        || getUserRole() == 'University_Staff'
+        || getUserRole() == 'STAFF'
+        || getUserRole() == 'staff'
+        || getUserRole() == 'Staff'
+        || isAdmin()
+      );
+    }
+
+    function isSameUniversity(university) {
+      return isUniversityStaff() && university != null && university == getUserUniversity();
+    }
+
+    function roleWasNotChanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+    }
+
+    // ==================== USERS ====================
     match /users/{userId} {
       allow read, write: if isSystem(userId);
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      // TEMPORARY: Allow all authenticated users to read all users for debugging
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isOwner(userId) && roleWasNotChanged());
       allow delete: if false;
     }
-    
-    // ==================== DOCUMENTS COLLECTION ====================
-    // Users can manage their own documents
-    // Staff can read reference documents from their university
-    // Admins can read all documents for dashboard statistics and management
+
+    // ==================== DOCUMENTS ====================
     match /documents/{documentId} {
       allow read, write: if isSystem(documentId);
-      
-      // Users can read their own documents
-      allow read: if isAuthenticated() && isOwner(resource.data.userId);
-      
-      // Staff can read reference documents (marked with isReference: true)
-      allow read: if isStaff() && resource.data.isReference == true;
-      
-      // Admins can read all documents for dashboard and management
-      allow read: if isAdmin();
-      
-      // TEMPORARY: Allow all authenticated users to read all documents for debugging
-      allow read: if isAuthenticated();
-      
-      // Users can upload documents (create)
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      
-      // Users and staff can update their own/assigned documents
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isStaff());
-      
-      // Users can delete their own documents
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || isOwner(resource.data.uploadedBy)
+        || isSameUniversity(resource.data.university);
+
+      allow create: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid
+          || request.resource.data.uploadedBy == request.auth.uid
+          || isAdmin()
+        );
+
+      allow update: if isAdmin()
+        || (
+          isAuthenticated()
+          && (
+            resource.data.userId == request.auth.uid
+            || resource.data.uploadedBy == request.auth.uid
+          )
+        )
+        || isSameUniversity(resource.data.university);
+
+      allow delete: if isAdmin()
+        || (
+          isAuthenticated()
+          && (
+            resource.data.userId == request.auth.uid
+            || resource.data.uploadedBy == request.auth.uid
+          )
+        );
     }
-    
-    // ==================== VERIFICATION RESULTS COLLECTION ====================
-    // Users can manage their own verification results
-    // Admins can read all verification results for dashboard statistics
+
+    // ==================== VERIFICATION RESULTS ====================
     match /verificationResults/{resultId} {
-      allow read: if isAuthenticated() && isOwner(resource.data.userId);
-      allow read: if isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || isSameUniversity(resource.data.university);
+      allow create: if isAuthenticated()
+        && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin()
+        || (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
-    
-    // ==================== SETTINGS COLLECTION ====================
-    // Users can manage their own settings
+
+    // ==================== FEEDBACK ====================
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || isOwner(resource.data.createdBy);
+      allow create: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid
+          || request.resource.data.createdBy == request.auth.uid
+        );
+      allow update, delete: if isAdmin();
+    }
+
+    // ==================== ACTIVITY ====================
+    match /activity/{activityId} {
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || isSameUniversity(resource.data.university);
+      allow create: if isAuthenticated()
+        && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    // ==================== SETTINGS ====================
     match /settings/{userId} {
       allow read, write: if isSystem(userId);
-      allow read: if isAuthenticated() && isOwner(userId);
-      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow read, create, update: if isOwner(userId);
       allow delete: if false;
     }
-    
+
     // ==================== ADMIN DASHBOARD COLLECTIONS ====================
-    
-    // Universities collection
-    // Staff and admin can read, only admin can write
     match /universities/{universityId} {
-      allow read: if isStaff();
+      allow read: if isUniversityStaff();
       allow create, update: if isAdmin();
       allow delete: if false;
     }
-    
-    // Fraud cases collection
-    // Staff and admin can read, only admin can write
+
     match /fraud_cases/{caseId} {
-      allow read: if isStaff();
+      allow read: if isUniversityStaff();
       allow create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
-    
-    // System stats collection
-    // Staff and admin can read, only admin can write
+
     match /system_stats/{statsId} {
-      allow read: if isStaff();
+      allow read: if isUniversityStaff();
       allow create, update: if isAdmin();
       allow delete: if false;
     }
-    
-    // Templates collection
-    // Staff and admin can read, only admin can write
+
     match /templates/{templateId} {
-      allow read: if isStaff();
+      allow read: if isUniversityStaff();
       allow create, update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
-    
-    // Staff data collection
-    // Staff can read their own data, admin can read/write all
+
     match /staff/{staffId} {
-      allow read: if isAuthenticated() && (isOwner(staffId) || isAdmin());
-      allow create, update: if isAdmin() || (isAuthenticated() && isOwner(staffId));
+      allow read: if isOwner(staffId) || isAdmin();
+      allow create, update: if isAdmin() || isOwner(staffId);
       allow delete: if false;
     }
-    
-    // ==================== CATCH-ALL RULE ====================
-    // Deny everything not explicitly allowed
+
     match /{document=**} {
       allow read, write: if false;
     }

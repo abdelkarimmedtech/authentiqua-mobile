@@ -24,7 +24,11 @@ export function getUserDisplayName(user) {
 }
 
 export function getUserRole(user) {
-  return user?.profile?.role || user?.role || null;
+  const role = user?.profile?.role || user?.role || null;
+  if (!role) return null;
+  const normalized = String(role).trim().toUpperCase();
+  if (normalized === 'STAFF') return 'UNIVERSITY_STAFF';
+  return normalized;
 }
 
 export function isOnboardingComplete(user) {

@@ -14,7 +14,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getThemeColors } from '../../utils/themeColors';
 import { getUserDisplayName } from '../../utils/user';
-import { fetchAdminStats } from '../../../backend/firestore';
+import { fetchAdminStats, getCurrentAdminContext } from '../../../backend/firestore';
 
 function StatCard({ title, value, icon, color = '#0E6CFF' }) {
   const { theme } = useContext(ThemeContext);
@@ -63,11 +63,14 @@ export default function AdminDashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [adminContext, setAdminContext] = useState(null);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalDocuments: 0,
-    pendingReviews: 0,
-    verifiedDocuments: 0,
+    pendingDocuments: 0,
+    approvedDocuments: 0,
+    rejectedDocuments: 0,
+    universityStaffCount: 0,
   });
 
   useEffect(() => {
@@ -77,6 +80,11 @@ export default function AdminDashboardScreen({ navigation }) {
   const refreshStats = async () => {
     try {
       setRefreshing(true);
+      const context = await getCurrentAdminContext();
+      setAdminContext(context);
+      if (!context.success || !context.isAdmin) {
+        console.warn('AdminDashboardScreen: admin context problem', context);
+      }
       console.log('Fetching admin stats...');
       const response = await fetchAdminStats();
       if (response.success) {
@@ -96,26 +104,6 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const onRefresh = async () => {
     await refreshStats();
-  };
-
-  const handleFraudCases = () => {
-    Alert.alert('Fraud Cases', 'Review suspicious documents in the pending queue below.');
-  };
-
-  const handleSystemStats = () => {
-    Alert.alert('System Statistics', `Total Users: ${stats.totalUsers}\nTotal Documents: ${stats.totalDocuments}\nPending Reviews: ${stats.pendingReviews}\nVerified Documents: ${stats.verifiedDocuments}`);
-  };
-
-  const handleTemplates = () => {
-    Alert.alert('Coming Soon', 'Document template management will be available in the next update.');
-  };
-
-  const handleStaffManagement = () => {
-    Alert.alert('Coming Soon', 'Staff management interface will be available in the next update.');
-  };
-
-  const handleBulkVerification = () => {
-    Alert.alert('Coming Soon', 'Bulk document verification will be available in the next update.');
   };
 
   return (
@@ -145,6 +133,17 @@ export default function AdminDashboardScreen({ navigation }) {
       >
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>System Overview</Text>
+          <View style={[styles.adminInfo, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name={adminContext?.isAdmin ? 'shield-check' : 'shield-alert'} size={22} color={adminContext?.isAdmin ? '#00FF99' : '#F5A623'} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.adminInfoTitle, { color: colors.text }]} numberOfLines={1}>
+                {adminContext?.email || user?.email || 'Checking admin account...'}
+              </Text>
+              <Text style={[styles.adminInfoSub, { color: colors.textSecondary }]} numberOfLines={2}>
+                UID: {adminContext?.uid || user?.uid || 'unknown'} · Role: {adminContext?.role || 'checking'}
+              </Text>
+            </View>
+          </View>
           <View style={styles.statsGrid}>
             <StatCard
               title="Total Users"
@@ -160,13 +159,13 @@ export default function AdminDashboardScreen({ navigation }) {
             />
             <StatCard
               title="Pending Reviews"
-              value={stats.pendingReviews.toString()}
+              value={(stats.pendingDocuments || stats.pendingReviews || 0).toString()}
               icon="clock-outline"
               color="#F5A623"
             />
             <StatCard
-              title="Verified Documents"
-              value={stats.verifiedDocuments.toLocaleString()}
+              title="Approved Documents"
+              value={(stats.approvedDocuments || stats.verifiedDocuments || 0).toLocaleString()}
               icon="check-circle"
               color="#00FF99"
             />
@@ -179,47 +178,61 @@ export default function AdminDashboardScreen({ navigation }) {
             title="Review Pending Documents"
             subtitle="Approve or reject verification requests"
             icon="clipboard-check"
-            onPress={() => navigation.navigate('StaffDocumentReview')}
+            onPress={() => navigation.navigate('AdminPendingDocuments')}
             color="#4CAF50"
           />
           <ActionCard
             title="System Statistics"
             subtitle="Detailed analytics and reports"
             icon="chart-line"
-            onPress={handleSystemStats}
+            onPress={() => navigation.navigate('AdminReports')}
             color="#0E6CFF"
           />
           <ActionCard
             title="Fraud Cases"
-            subtitle="Review and manage suspicious activities"
+            subtitle="Review suspicious verification activity"
             icon="alert-circle"
-            onPress={handleFraudCases}
+            onPress={() => navigation.navigate('AdminFraudCases')}
             color="#FF6B6B"
           />
           <ActionCard
             title="Document Templates"
-            subtitle="Manage verification templates"
+            subtitle="View official verification templates"
             icon="file-cabinet"
-            onPress={handleTemplates}
+            onPress={() => navigation.navigate('AdminTemplates')}
             color="#9C27B0"
           />
           <ActionCard
             title="Staff Management"
-            subtitle="Manage university staff accounts"
+            subtitle="Manage staff and user roles safely"
             icon="account-cog"
-            onPress={handleStaffManagement}
+            onPress={() => navigation.navigate('AdminUsers')}
             color="#FF9800"
+          />
+          <ActionCard
+            title="Feedback Management"
+            subtitle="Review and resolve user feedback"
+            icon="message-alert"
+            onPress={() => navigation.navigate('AdminFeedback')}
+            color="#FF6B6B"
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Bulk Operations</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Verification</Text>
           <ActionCard
             title="Bulk Verification"
-            subtitle="Process multiple documents at once"
+            subtitle="Approve or reject multiple pending documents"
             icon="checkbox-multiple-marked"
-            onPress={handleBulkVerification}
+            onPress={() => navigation.navigate('AdminBulkVerification')}
             color="#4CAF50"
+          />
+          <ActionCard
+            title="Verification Activity"
+            subtitle="Latest uploads and AI verification results"
+            icon="radar"
+            onPress={() => navigation.navigate('AdminVerificationActivity')}
+            color="#0E6CFF"
           />
         </View>
       </ScrollView>
@@ -244,6 +257,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
 
   statsGrid: { gap: 12 },
+  adminInfo: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 14, borderWidth: 1, marginBottom: 12, gap: 10 },
+  adminInfoTitle: { fontSize: 13, fontWeight: '800' },
+  adminInfoSub: { fontSize: 11, marginTop: 3 },
   statCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0A1F3A', borderRadius: 16, padding: 16, borderWidth: 1 },
   statIconWrap: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
   statValue: { fontSize: 24, fontWeight: '800' },

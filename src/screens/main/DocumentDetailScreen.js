@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -52,6 +52,22 @@ export default function DocumentDetailScreen({ route, navigation }) {
     );
   };
 
+  const openDocument = async () => {
+    const url = doc?.fileUrl || doc?.downloadUrl || doc?.url;
+    if (!url) {
+      Alert.alert('No file available', 'This document does not have a file URL attached.');
+      return;
+    }
+
+    try {
+      console.log('DocumentDetailScreen: opening document URL', url);
+      await Linking.openURL(url);
+    } catch (err) {
+      console.error('DocumentDetailScreen open file error:', err?.message || err);
+      Alert.alert('Could not open document', 'The document link could not be opened on this device.');
+    }
+  };
+
   return (
     <SafeAreaView style={dynamicStyles(colors).safeArea}>
       <View style={dynamicStyles(colors).header}>
@@ -86,11 +102,11 @@ export default function DocumentDetailScreen({ route, navigation }) {
             </View>
 
             <View style={styles.badgeRow}>
-              <View style={[styles.statusPill, doc.status === 'VERIFIED' ? styles.verified : doc.status === 'REFERENCE' ? styles.verified : styles.pending]}>
+              <View style={[styles.statusPill, doc.status === 'VERIFIED' || doc.status === 'APPROVED' ? styles.verified : doc.status === 'REFERENCE' ? styles.verified : doc.status === 'REJECTED' ? styles.rejected : styles.pending]}>
                 <MaterialCommunityIcons
-                  name={doc.status === 'VERIFIED' || doc.status === 'REFERENCE' ? 'check-circle' : doc.status === 'REJECTED' ? 'close-circle' : 'clock-outline'}
+                  name={doc.status === 'VERIFIED' || doc.status === 'APPROVED' || doc.status === 'REFERENCE' ? 'check-circle' : doc.status === 'REJECTED' ? 'close-circle' : 'clock-outline'}
                   size={18}
-                  color={doc.status === 'VERIFIED' || doc.status === 'REFERENCE' ? '#00FF99' : doc.status === 'REJECTED' ? '#FF6B6B' : '#FFB800'}
+                  color={doc.status === 'VERIFIED' || doc.status === 'APPROVED' || doc.status === 'REFERENCE' ? '#00FF99' : doc.status === 'REJECTED' ? '#FF6B6B' : '#FFB800'}
                 />
                 <Text style={styles.statusText}>
                   {doc.status === 'REFERENCE' ? 'OFFICIAL' : doc.status || 'PENDING'}
@@ -99,9 +115,15 @@ export default function DocumentDetailScreen({ route, navigation }) {
             </View>
 
             {renderRow('File name', doc.fileName)}
+            {renderRow('File type', doc.metadata?.mimeType || doc.fileType)}
             {renderRow('Uploaded at', doc.uploadedAt?.toDate?.().toLocaleString?.() || '')}
             {renderRow('Verification notes', doc.verificationNotes)}
             {renderRow('Owner user id', doc.userId)}
+
+            <TouchableOpacity style={styles.openBtn} onPress={openDocument} activeOpacity={0.85}>
+              <MaterialCommunityIcons name="open-in-new" size={18} color="#FFFFFF" />
+              <Text style={styles.openText}>Open Document</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -162,6 +184,7 @@ const styles = StyleSheet.create({
   },
   verified: { backgroundColor: 'rgba(0,255,153,0.12)' },
   pending: { backgroundColor: 'rgba(255,184,0,0.12)' },
+  rejected: { backgroundColor: 'rgba(255,107,107,0.12)' },
   statusText: { color: '#E6EEF8', fontSize: 12, fontWeight: '700', marginLeft: 6 },
   row: {
     paddingVertical: 8,
@@ -173,5 +196,16 @@ const styles = StyleSheet.create({
   },
   label: { color: '#9AA7C0', fontSize: 13, marginRight: 12, flex: 0.5 },
   value: { color: '#E6EEF8', fontSize: 13, flex: 1, textAlign: 'right' },
+  openBtn: {
+    marginTop: 16,
+    minHeight: 46,
+    borderRadius: 12,
+    backgroundColor: '#0E6CFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  openText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });
 

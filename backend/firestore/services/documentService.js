@@ -10,66 +10,75 @@ import {
   getDocs,
   orderBy,
   onSnapshot,
-  Timestamp
+  Timestamp,
 } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, app } from '../config';
-
-const storage = getStorage(app);
+import { db } from '../config';
 
 const DOCUMENTS_COLLECTION = 'documents';
 
-/**
- * Upload scanned document
- */
-export const uploadFileToStorage = async (userId, fileUri, fileName, mimeType = 'application/octet-stream') => {
-  try {
-    if (!fileUri) {
-      throw new Error('No file URI provided for storage upload');
-    }
+const isPdfDocument = (documentData = {}) => {
+  const fileName = (documentData.fileName || '').toLowerCase();
+  const mimeType = documentData.metadata?.mimeType || documentData.mimeType || '';
+  const scanSource = documentData.metadata?.scanSource || documentData.scanSource || '';
 
-    const response = await fetch(fileUri);
-    const fileBlob = await response.blob();
-    const timestamp = Date.now();
-    const storagePath = `documents/${userId}/${timestamp}_${fileName}`;
-    const fileRef = storageRef(storage, storagePath);
-
-    await uploadBytes(fileRef, fileBlob, { contentType: mimeType });
-    const downloadUrl = await getDownloadURL(fileRef);
-
-    return { success: true, downloadUrl, storagePath };
-  } catch (error) {
-    console.error('❌ Error uploading file to storage:', error.message || error);
-    throw error;
-  }
+  return mimeType === 'application/pdf' || fileName.endsWith('.pdf') || scanSource === 'pdf';
 };
 
+/**
+ * Firebase Storage is disabled on the Spark plan.
+ * Keep this exported helper as a safe no-op for existing imports/call sites.
+ */
+export const uploadFileToStorage = async (userId, fileUri, fileName, mimeType = 'application/octet-stream') => {
+  console.log('[DocumentService] Firebase Storage disabled. Skipping file upload:', {
+    userId,
+    fileName,
+    mimeType,
+    fileUri,
+  });
+
+  return {
+    success: true,
+    downloadUrl: null,
+    storagePath: null,
+  };
+};
+
+/**
+ * Save document metadata in Firestore only.
+ * No Firebase Storage calls are made for PDFs or images.
+ */
 export const uploadDocument = async (userId, documentData) => {
   try {
-    let fileUrl = documentData.fileUrl || '';
-    let metadata = {
+    const fileName = documentData.fileName || 'document';
+    const mimeType = documentData.metadata?.mimeType || documentData.mimeType || 'application/octet-stream';
+    const pdf = isPdfDocument(documentData);
+    const scanSource = documentData.metadata?.scanSource || (pdf ? 'pdf' : 'image');
+    const metadata = {
+      ...(documentData.metadata || {}),
       size: documentData.metadata?.size || 0,
-      mimeType: documentData.metadata?.mimeType || 'application/octet-stream',
+      mimeType,
       pages: documentData.metadata?.pages || 0,
+      scanSource,
+      storageDisabled: true,
+      storagePath: null,
     };
 
-    if (documentData.fileUri) {
-      const fileName = documentData.fileName || 'document';
-      const mimeType = documentData.metadata?.mimeType || 'application/octet-stream';
-      const storageResult = await uploadFileToStorage(userId, documentData.fileUri, fileName, mimeType);
-      fileUrl = storageResult.downloadUrl;
-      metadata = {
-        ...metadata,
-        mimeType,
-        storagePath: storageResult.storagePath,
-      };
-    }
+    console.log('[DocumentService] Saving document metadata only. Firebase Storage upload skipped:', {
+      userId,
+      fileName,
+      mimeType,
+      scanSource,
+    });
 
     const docRef = await addDoc(collection(db, DOCUMENTS_COLLECTION), {
       userId,
       documentType: documentData.documentType || 'OTHER',
-      fileName: documentData.fileName || 'document',
-      fileUrl,
+      fileName,
+      fileUri: documentData.fileUri || null,
+      fileUrl: documentData.fileUrl || null,
+      storageUrl: null,
+      downloadURL: null,
+      downloadUrl: null,
       status: documentData.status || 'PENDING',
       verificationNotes: documentData.verificationNotes || '',
       university: documentData.university || null,
@@ -81,7 +90,7 @@ export const uploadDocument = async (userId, documentData) => {
 
     return { success: true, documentId: docRef.id };
   } catch (error) {
-    console.error('❌ Error uploading document:', error.message || error);
+    console.error('Error saving document metadata:', error?.message || error);
     throw error;
   }
 };
@@ -96,14 +105,14 @@ export const getUserDocuments = async (userId) => {
       where('userId', '==', userId),
       orderBy('uploadedAt', 'desc')
     );
-    
+
     const querySnapshot = await getDocs(q);
     const documents = [];
 
-    querySnapshot.forEach((doc) => {
+    querySnapshot.forEach((docSnap) => {
       documents.push({
-        id: doc.id,
-        ...doc.data(),
+        id: docSnap.id,
+        ...docSnap.data(),
       });
     });
 
@@ -124,9 +133,9 @@ export const getDocument = async (documentId) => {
 
     if (docSnap.exists()) {
       return { success: true, data: { id: docSnap.id, ...docSnap.data() } };
-    } else {
-      return { success: false, data: null };
     }
+
+    return { success: false, data: null };
   } catch (error) {
     console.error('Error getting document:', error);
     throw error;
@@ -139,7 +148,7 @@ export const getDocument = async (documentId) => {
 export const updateDocument = async (documentId, updates) => {
   try {
     const docRef = doc(db, DOCUMENTS_COLLECTION, documentId);
-    
+
     await updateDoc(docRef, {
       ...updates,
       updatedAt: Timestamp.now(),
@@ -177,13 +186,12 @@ export const onUserDocumentsChange = (userId, callback) => {
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const documents = [];
-      querySnapshot.forEach((doc) => {
+      querySnapshot.forEach((docSnap) => {
         documents.push({
-          id: doc.id,
-          ...doc.data(),
+          id: docSnap.id,
+          ...docSnap.data(),
         });
       });
-      // Sort by uploadedAt descending
       documents.sort((a, b) => (b.uploadedAt?.toMillis?.() || 0) - (a.uploadedAt?.toMillis?.() || 0));
       callback({ success: true, documents });
     });
@@ -210,10 +218,10 @@ export const getDocumentsByStatus = async (userId, status) => {
     const querySnapshot = await getDocs(q);
     const documents = [];
 
-    querySnapshot.forEach((doc) => {
+    querySnapshot.forEach((docSnap) => {
       documents.push({
-        id: doc.id,
-        ...doc.data(),
+        id: docSnap.id,
+        ...docSnap.data(),
       });
     });
 
@@ -237,11 +245,11 @@ export const getUniversityReferenceDocuments = async (university, limit = 50) =>
     const querySnapshot = await getDocs(q);
     const documents = [];
 
-    querySnapshot.forEach((d) => {
-      const data = d.data();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       if (data?.isReference) {
         documents.push({
-          id: d.id,
+          id: docSnap.id,
           ...data,
         });
       }
@@ -273,11 +281,11 @@ export const onUniversityReferenceDocumentsChange = (university, callback) => {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
         const documents = [];
-        querySnapshot.forEach((d) => {
-          const data = d.data();
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
           if (data?.isReference) {
             documents.push({
-              id: d.id,
+              id: docSnap.id,
               ...data,
             });
           }
@@ -317,9 +325,9 @@ export const hasReferenceDocument = async (university, documentType) => {
     );
     const querySnapshot = await getDocs(q);
     let reference = null;
-    querySnapshot.forEach((d) => {
+    querySnapshot.forEach((docSnap) => {
       if (!reference) {
-        reference = { id: d.id, ...d.data() };
+        reference = { id: docSnap.id, ...docSnap.data() };
       }
     });
     return { success: true, exists: !querySnapshot.empty, reference };
@@ -345,10 +353,10 @@ export const getPendingDocumentsForUniversity = async (university, limit = 50) =
     const querySnapshot = await getDocs(q);
     const documents = [];
 
-    querySnapshot.forEach((doc) => {
+    querySnapshot.forEach((docSnap) => {
       documents.push({
-        id: doc.id,
-        ...doc.data(),
+        id: docSnap.id,
+        ...docSnap.data(),
       });
     });
 
@@ -375,10 +383,10 @@ export const onPendingDocumentsForUniversityChange = (university, callback) => {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
         const documents = [];
-        querySnapshot.forEach((doc) => {
+        querySnapshot.forEach((docSnap) => {
           documents.push({
-            id: doc.id,
-            ...doc.data(),
+            id: docSnap.id,
+            ...docSnap.data(),
           });
         });
         callback({ success: true, documents });
@@ -413,10 +421,10 @@ export const onPendingDocumentsChange = (callback) => {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       try {
         const documents = [];
-        querySnapshot.forEach((doc) => {
+        querySnapshot.forEach((docSnap) => {
           documents.push({
-            id: doc.id,
-            ...doc.data(),
+            id: docSnap.id,
+            ...docSnap.data(),
           });
         });
         callback({ success: true, documents });

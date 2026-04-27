@@ -24,6 +24,15 @@ import DocumentDetailScreen from '../screens/main/DocumentDetailScreen';
 import UniversityReferenceUploadScreen from '../screens/main/UniversityReferenceUploadScreen';
 import StaffDocumentReviewScreen from '../screens/main/StaffDocumentReviewScreen';
 import AdminDashboardScreen from '../screens/main/AdminDashboardScreen';
+import AdminPendingDocumentsScreen from '../screens/main/AdminPendingDocumentsScreen';
+import AdminAllDocumentsScreen from '../screens/main/AdminAllDocumentsScreen';
+import AdminUsersScreen from '../screens/main/AdminUsersScreen';
+import AdminReportsScreen from '../screens/main/AdminReportsScreen';
+import AdminFeedbackScreen from '../screens/main/AdminFeedbackScreen';
+import AdminVerificationActivityScreen from '../screens/main/AdminVerificationActivityScreen';
+import AdminFraudCasesScreen from '../screens/main/AdminFraudCasesScreen';
+import AdminTemplatesScreen from '../screens/main/AdminTemplatesScreen';
+import AdminBulkVerificationScreen from '../screens/main/AdminBulkVerificationScreen';
 import VerifyIdentityScreen from '../screens/auth/VerifyIdentityScreen';
 
 import { AuthContext } from '../context/AuthContext';
@@ -71,6 +80,15 @@ export default function MainNavigator() {
       <Stack.Screen name="UniversityReferenceUpload" component={UniversityReferenceUploadScreen} />
       <Stack.Screen name="StaffDocumentReview" component={StaffDocumentReviewScreen} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="AdminPendingDocuments" component={AdminPendingDocumentsScreen} />
+      <Stack.Screen name="AdminAllDocuments" component={AdminAllDocumentsScreen} />
+      <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+      <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
+      <Stack.Screen name="AdminFeedback" component={AdminFeedbackScreen} />
+      <Stack.Screen name="AdminVerificationActivity" component={AdminVerificationActivityScreen} />
+      <Stack.Screen name="AdminFraudCases" component={AdminFraudCasesScreen} />
+      <Stack.Screen name="AdminTemplates" component={AdminTemplatesScreen} />
+      <Stack.Screen name="AdminBulkVerification" component={AdminBulkVerificationScreen} />
     </Stack.Navigator>
   );
 }

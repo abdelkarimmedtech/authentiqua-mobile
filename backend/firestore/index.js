@@ -41,7 +41,7 @@ export {
   getUniversityReferenceDocuments,
   onUniversityReferenceDocumentsChange,
   hasReferenceDocument,
-  getPendingDocuments,
+  getPendingDocumentsForUniversity,
   onPendingDocumentsForUniversityChange,
   onPendingDocumentsChange,
   approveDocument,
@@ -78,7 +78,21 @@ export {
 
 // Admin Service
 export {
+  getCurrentAdminContext,
   fetchAdminStats,
+  onPendingDocumentsChange as onAdminPendingDocumentsChange,
+  onAllDocumentsChange,
+  updateDocumentStatus,
+  onAllUsersChange,
+  updateUserRole,
+  onFraudCasesChange,
+  onDocumentTemplatesChange,
+  onBulkVerificationDocumentsChange,
+  bulkUpdateDocumentStatus,
+  onFeedbackChange,
+  updateFeedbackStatus,
+  deleteFeedback,
+  onVerificationActivityChange,
 } from './services/adminService';
 
 // Data Models

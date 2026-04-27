@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CustomButton from '../../components/CustomButton';
 import CustomInput from '../../components/CustomInput';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getThemeColors } from '../../utils/themeColors';
-import { scanImage } from '../../services/scanService';
+import { scanImage, scanPdf } from '../../services/scanService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { getUserRole } from '../../utils/user';
@@ -30,8 +28,9 @@ export default function ScanScreen({ navigation, route }) {
   const role = useMemo(() => getUserRole(user), [user]);
   const defaultUniversity = user?.profile?.university || '';
 
-  const [image, setImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [flashOn, setFlashOn] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -40,68 +39,90 @@ export default function ScanScreen({ navigation, route }) {
   const [university, setUniversity] = useState(defaultUniversity);
   const [documentType, setDocumentType] = useState('TRANSCRIPT');
 
-  // Auto-open camera or gallery based on route params
   useEffect(() => {
     if (route?.params?.openCamera) {
       setTimeout(() => openCamera(), 300);
     } else if (route?.params?.galleryOnly) {
-      setTimeout(() => pickImage(), 300);
+      setTimeout(() => pickFile(), 300);
     }
   }, [route?.params?.openCamera, route?.params?.galleryOnly]);
 
-  // Request camera permission on mount
   useEffect(() => {
     if (permission && !permission.granted) {
       requestPermission();
     }
-  }, []);
+  }, [permission, requestPermission]);
 
-  const pickImage = async () => {
+  const getFileName = (uri, fallback = 'document') => {
+    if (!uri) return fallback;
+    const cleanUri = uri.split('?')[0];
+    return decodeURIComponent(cleanUri.split('/').pop() || fallback);
+  };
+
+  const getMimeType = (file) => {
+    const explicitType = file?.mimeType || file?.type;
+    const name = (file?.name || file?.uri || '').toLowerCase();
+
+    if (explicitType === 'application/pdf' || name.endsWith('.pdf')) {
+      return 'application/pdf';
+    }
+
+    if (explicitType?.startsWith('image/')) {
+      return explicitType;
+    }
+
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    if (name.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
+  };
+
+  const isPdfFile = (file) => getMimeType(file) === 'application/pdf';
+
+  const pickFile = async () => {
     try {
-      console.log('Opening gallery...');
-      const res = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (res.status !== 'granted') {
-        Alert.alert('Permission Denied', 'Media library permission is required to access your gallery');
+      console.log('[ScanScreen] Opening document picker...');
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        console.log('[ScanScreen] File picker cancelled');
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 1,
-        allowsMultiple: false
+      const asset = result.assets[0];
+      const file = {
+        uri: asset.uri,
+        name: asset.name || getFileName(asset.uri),
+        mimeType: asset.mimeType || getMimeType(asset),
+      };
+
+      if (!file.mimeType.startsWith('image/') && file.mimeType !== 'application/pdf') {
+        Alert.alert('Unsupported file', 'Please select an image or PDF document.');
+        return;
+      }
+
+      console.log('[ScanScreen] File selected:', {
+        name: file.name,
+        mimeType: file.mimeType,
+        uri: file.uri,
       });
 
-      const cancelled = typeof result.cancelled !== 'undefined' ? result.cancelled : result.canceled;
-      if (!cancelled && result.assets && result.assets.length > 0) {
-        console.log('Image selected:', result.assets[0].uri);
-        setImage(result.assets[0].uri);
-        setShowCamera(false);
-      } else {
-        console.log('Gallery cancelled or no image selected');
-      }
+      setSelectedFile(file);
+      setShowCamera(false);
     } catch (error) {
-      console.error('❌ Gallery error:', error?.message || 'Unknown error');
-      Alert.alert('Error', 'Could not access gallery. Please try again.');
-    }
-  };
-
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf'
-      });
-
-      if (result.canceled === false && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to pick document');
+      console.error('[ScanScreen] File picker error:', error?.message || error);
+      Alert.alert('Error', 'Could not select the document. Please try again.');
     }
   };
 
   const openCamera = async () => {
     try {
-      console.log('Opening camera...');
+      console.log('[ScanScreen] Opening camera...');
       if (!permission?.granted) {
         const result = await requestPermission();
         if (!result.granted) {
@@ -111,7 +132,7 @@ export default function ScanScreen({ navigation, route }) {
       }
       setShowCamera(true);
     } catch (error) {
-      console.error('❌ Camera open error:', error?.message || 'Unknown error');
+      console.error('[ScanScreen] Camera open error:', error?.message || error);
       Alert.alert('Error', 'Failed to open camera');
     }
   };
@@ -121,29 +142,30 @@ export default function ScanScreen({ navigation, route }) {
       Alert.alert('Error', 'Camera is not ready');
       return;
     }
+
     try {
-      const photo = await cameraRef.current.takePictureAsync({ 
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 1,
         base64: false,
-        exif: false
+        exif: false,
       });
-      if (photo && photo.uri) {
-        setImage(photo.uri);
+
+      if (photo?.uri) {
+        setSelectedFile({
+          uri: photo.uri,
+          name: getFileName(photo.uri, 'camera-photo.jpg'),
+          mimeType: 'image/jpeg',
+        });
         setShowCamera(false);
       }
     } catch (error) {
+      console.error('[ScanScreen] Camera capture error:', error?.message || error);
       Alert.alert('Camera Error', 'Failed to capture photo. Please try again.');
-      console.error('❌ Camera capture error:', error?.message || 'Unknown error');
     }
   };
 
-  const getMimeType = (uri) => {
-    if (uri?.toLowerCase().endsWith('.pdf')) return 'application/pdf';
-    return 'image/jpeg';
-  };
-
   const onUpload = async () => {
-    if (!image) return Alert.alert('Please pick or take a photo first');
+    if (!selectedFile?.uri) return Alert.alert('Please pick or take a photo first');
     if (role !== 'USER') {
       Alert.alert('Not available', 'University staff should upload reference documents instead of scanning.');
       navigation.navigate('UniversityReferenceUpload');
@@ -151,10 +173,103 @@ export default function ScanScreen({ navigation, route }) {
     }
     if (!university?.trim()) return Alert.alert('Missing university', 'Please enter the university for this document.');
     if (!documentType) return Alert.alert('Missing type', 'Please choose a document type.');
+
     try {
       setLoading(true);
+      setStatusMessage('Verifying...');
+
       const uni = university.trim();
-      const baseResult = await scanImage(image, { documentType, university: uni });
+      const fileName = selectedFile.name || getFileName(selectedFile.uri);
+      const uid = user?.uid;
+      const mimeType = getMimeType(selectedFile);
+      const fileType = isPdfFile(selectedFile) ? 'pdf' : 'image';
+
+      console.log('File type:', mimeType);
+      console.log('File name:', fileName);
+
+      if (fileType === 'pdf') {
+        console.log('PDF selected - sending to backend');
+        setStatusMessage('Scanning PDF...');
+
+        let pdfResult = null;
+        let pdfScanFailed = false;
+
+        try {
+          pdfResult = await scanPdf(selectedFile.uri, {
+            documentType,
+            university: uni,
+            fileName,
+          });
+        } catch (pdfError) {
+          pdfScanFailed = true;
+          console.error('[ScanScreen] PDF scanning failed:', pdfError?.message || pdfError);
+        }
+
+        const finalLabel = pdfResult?.label || 'PENDING';
+        const confidence = Number(pdfResult?.confidence || 0);
+        const status = pdfScanFailed ? 'PENDING' : finalLabel === 'REAL' ? 'VERIFIED' : 'REJECTED';
+        const uploadRes = await uploadDocument(uid, {
+          documentType,
+          fileName,
+          fileUri: selectedFile.uri,
+          status,
+          verificationNotes: pdfScanFailed
+            ? 'PDF scanning failed, saved for review.'
+            : pdfResult?.notes || 'PDF scanned by backend AI service.',
+          university: uni,
+          isReference: false,
+          metadata: {
+            mimeType,
+            scanSource: 'pdf',
+            storageDisabled: true,
+          },
+        });
+
+        await logActivity(uid, {
+          type: pdfScanFailed ? 'UPLOAD' : 'VERIFICATION',
+          status,
+          documentId: uploadRes?.documentId || null,
+          description: pdfScanFailed ? 'PDF scanning failed, saved for review' : 'PDF verification completed',
+          details: {
+            university: uni,
+            documentType,
+            fileName,
+            mimeType,
+            label: finalLabel,
+            confidence,
+            modelVersion: pdfResult?.modelVersion || null,
+          },
+        });
+
+        if (pdfScanFailed) {
+          Alert.alert('Saved for review', 'PDF scanning failed, saved for review.');
+          navigation.navigate('Documents');
+          return;
+        }
+
+        navigation.replace('Result', {
+          result: {
+            label: finalLabel,
+            confidence,
+            modelVersion: pdfResult?.modelVersion,
+            notes: pdfResult?.notes,
+          },
+          documentId: uploadRes?.documentId || null,
+          meta: {
+            university: uni,
+            documentType,
+            fileName,
+            status,
+          },
+        });
+        return;
+      }
+
+      const scanUri = selectedFile.uri;
+
+      if (!scanUri) return;
+
+      const baseResult = await scanImage(scanUri, { documentType, university: uni });
       const refCheck = await hasReferenceDocument(uni, documentType);
       const hasRef = !!refCheck?.exists;
       const reference = refCheck?.reference || null;
@@ -163,16 +278,15 @@ export default function ScanScreen({ navigation, route }) {
       const finalLabel = hasRef ? 'REAL' : aiLabel;
       const confidence = hasRef ? Math.max(aiConfidence, 85) : aiConfidence;
       const status = finalLabel === 'REAL' ? 'VERIFIED' : 'REJECTED';
-      const fileName = image.split('/').pop() || 'document';
-      const uid = user?.uid;
       const metadata = {
-        mimeType: getMimeType(image),
+        mimeType,
+        scanSource: 'image',
       };
 
       const uploadRes = await uploadDocument(uid, {
         documentType,
         fileName,
-        fileUri: image,
+        fileUri: selectedFile.uri,
         status,
         verificationNotes: hasRef
           ? 'Matched against official university reference document and verified by AI.'
@@ -213,11 +327,13 @@ export default function ScanScreen({ navigation, route }) {
           staffUniversity: reference?.university || null,
         },
       });
-    } catch (e) {
-      console.error('❌ Verification error:', e?.message || 'Unknown error');
-      Alert.alert('Error', 'Failed to scan image');
+      Alert.alert('Success', 'Image scanned successfully');
+    } catch (error) {
+      console.error('[ScanScreen] Verification error:', error?.message || error);
+      Alert.alert('Error', error?.message || 'Unable to process this document. Please try again.');
     } finally {
       setLoading(false);
+      setStatusMessage('');
     }
   };
 
@@ -248,12 +364,9 @@ export default function ScanScreen({ navigation, route }) {
             enableTorch={flashOn}
             onCameraReady={() => setCameraReady(true)}
           />
-          
+
           <View style={styles.cameraOverlay}>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setShowCamera(false)}
-            >
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowCamera(false)}>
               <MaterialCommunityIcons name="chevron-left" size={28} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -262,34 +375,27 @@ export default function ScanScreen({ navigation, route }) {
             <TouchableOpacity
               style={styles.controlBtn}
               onPress={() => {
-                console.log('Toggling torch:', !flashOn);
+                console.log('[ScanScreen] Toggling torch:', !flashOn);
                 setFlashOn(!flashOn);
               }}
             >
-              <MaterialCommunityIcons 
-                name={flashOn ? 'flash' : 'flash-off'} 
-                size={28} 
-                color={flashOn ? '#00FF99' : '#E6EEF8'} 
+              <MaterialCommunityIcons
+                name={flashOn ? 'flash' : 'flash-off'}
+                size={28}
+                color={flashOn ? '#00FF99' : '#E6EEF8'}
               />
               <Text style={[styles.controlLabel, flashOn && { color: '#00FF99' }]}>
                 {flashOn ? 'Torch On' : 'Torch Off'}
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.captureBtn}
-              onPress={takePicture}
-              disabled={!cameraReady}
-            >
+            <TouchableOpacity style={styles.captureBtn} onPress={takePicture} disabled={!cameraReady}>
               <View style={styles.captureInner} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.controlBtn}
-              onPress={pickImage}
-            >
+            <TouchableOpacity style={styles.controlBtn} onPress={pickFile}>
               <MaterialCommunityIcons name="folder-image" size={28} color="#E6EEF8" />
-              <Text style={styles.controlLabel}>Gallery</Text>
+              <Text style={styles.controlLabel}>Files</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -309,15 +415,15 @@ export default function ScanScreen({ navigation, route }) {
         </View>
 
         <View style={styles.previewBox}>
-          {image ? (
-            image.toLowerCase().endsWith('.pdf') ? (
+          {selectedFile ? (
+            isPdfFile(selectedFile) ? (
               <View style={styles.pdfPreview}>
                 <MaterialCommunityIcons name="file-pdf-box" size={80} color="#FF6B6B" />
-                <Text style={styles.pdfFileName}>{image.split('/').pop()}</Text>
-                <Text style={styles.pdfSubtext}>PDF Document ready to verify</Text>
+                <Text style={styles.pdfFileName}>{selectedFile.name}</Text>
+                <Text style={styles.pdfSubtext}>PDF document ready to verify</Text>
               </View>
             ) : (
-              <Image source={{ uri: image }} style={styles.preview} />
+              <Image source={{ uri: selectedFile.uri }} style={styles.preview} />
             )
           ) : (
             <View style={styles.placeholder}>
@@ -328,24 +434,20 @@ export default function ScanScreen({ navigation, route }) {
           )}
         </View>
 
-        {!image && (
+        {!selectedFile && (
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.actionBtn} onPress={openCamera}>
               <MaterialCommunityIcons name="camera" size={24} color="#0E6CFF" />
               <Text style={styles.actionLabel}>Take Photo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={pickImage}>
-              <MaterialCommunityIcons name="image" size={24} color="#0E6CFF" />
-              <Text style={styles.actionLabel}>Choose Image</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={pickDocument}>
-              <MaterialCommunityIcons name="file-pdf-box" size={24} color="#0E6CFF" />
-              <Text style={styles.actionLabel}>Select PDF</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={pickFile}>
+              <MaterialCommunityIcons name="file-document" size={24} color="#0E6CFF" />
+              <Text style={styles.actionLabel}>Choose File</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {image && (
+        {selectedFile && (
           <View style={styles.imageActions}>
             <View style={styles.metaCard}>
               <Text style={styles.metaTitle}>Verification details</Text>
@@ -357,14 +459,16 @@ export default function ScanScreen({ navigation, route }) {
               />
               <Text style={styles.metaLabel}>Document type</Text>
               <View style={styles.typeRow}>
-                {DOC_TYPES.map((t) => (
+                {DOC_TYPES.map((type) => (
                   <TouchableOpacity
-                    key={t.id}
-                    style={[styles.typePill, documentType === t.id && styles.typePillActive]}
-                    onPress={() => setDocumentType(t.id)}
+                    key={type.id}
+                    style={[styles.typePill, documentType === type.id && styles.typePillActive]}
+                    onPress={() => setDocumentType(type.id)}
                     activeOpacity={0.85}
                   >
-                    <Text style={[styles.typeText, documentType === t.id && styles.typeTextActive]}>{t.label}</Text>
+                    <Text style={[styles.typeText, documentType === type.id && styles.typeTextActive]}>
+                      {type.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -375,29 +479,22 @@ export default function ScanScreen({ navigation, route }) {
               ) : null}
             </View>
 
-            <TouchableOpacity 
-              style={styles.verifyBtnContainer}
-              onPress={onUpload}
-              disabled={loading}
-            >
+            <TouchableOpacity style={styles.verifyBtnContainer} onPress={onUpload} disabled={loading}>
               <View style={styles.verifyIconCircle}>
-                <MaterialCommunityIcons 
-                  name="check-circle" 
-                  size={48} 
-                  color="#00FF99" 
-                />
+                <MaterialCommunityIcons name="check-circle" size={48} color="#00FF99" />
               </View>
               <Text style={styles.verifyBtnText}>
-                {loading ? 'Verifying...' : 'Verify Document'}
+                {loading ? statusMessage || 'Verifying...' : 'Verify Document'}
               </Text>
             </TouchableOpacity>
-            
-            <CustomButton
-              title="Choose Different"
-              onPress={() => setImage(null)}
+
+            <TouchableOpacity
               style={styles.secondaryBtn}
-              textStyle={{ color: colors.text }}
-            />
+              onPress={() => setSelectedFile(null)}
+              disabled={loading}
+            >
+              <Text style={styles.secondaryBtnText}>Choose Different</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -408,31 +505,31 @@ export default function ScanScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#0A0F1A' },
   container: { flex: 1, backgroundColor: '#0A0F1A' },
-  header: { 
-    padding: 18, 
-    alignItems: 'center', 
+  header: {
+    padding: 18,
+    alignItems: 'center',
     justifyContent: 'space-between',
     flexDirection: 'row',
     backgroundColor: '#0F1B2E',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(14, 108, 255, 0.1)'
+    borderBottomColor: 'rgba(14, 108, 255, 0.1)',
   },
   backBtn: { padding: 8 },
   title: { color: '#E6EEF8', fontSize: 18, fontWeight: '800' },
-  
   previewBox: {
     flex: 1,
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#000'
+    backgroundColor: '#000',
   },
   preview: { flex: 1, width: '100%' },
   pdfPreview: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F1B2E'
+    backgroundColor: '#0F1B2E',
+    paddingHorizontal: 20,
   },
   pdfFileName: { color: '#E6EEF8', fontSize: 16, fontWeight: '700', marginTop: 16, textAlign: 'center' },
   pdfSubtext: { color: '#9AA7C0', fontSize: 12, marginTop: 8 },
@@ -440,16 +537,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#142844'
+    backgroundColor: '#142844',
   },
   placeholderText: { color: '#9AA7C0', fontSize: 16, fontWeight: '700', marginTop: 12 },
   placeholderSub: { color: '#9AA7C0', fontSize: 12, marginTop: 6 },
-  
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: 16,
-    paddingBottom: 16
+    paddingBottom: 16,
   },
   actionBtn: {
     alignItems: 'center',
@@ -458,14 +554,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F1B2E',
     borderRadius: 12,
     flex: 1,
-    marginHorizontal: 6
+    marginHorizontal: 6,
   },
   actionLabel: { color: '#E6EEF8', fontSize: 11, fontWeight: '600', marginTop: 8 },
-  
   imageActions: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    gap: 10
+    gap: 10,
   },
   metaCard: {
     backgroundColor: '#0F1B2E',
@@ -497,28 +592,31 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: '#0E6CFF'
+    borderColor: '#0E6CFF',
   },
   verifyIconCircle: {
-    marginBottom: 12
+    marginBottom: 12,
   },
   verifyBtnText: {
     color: '#00FF99',
     fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
   },
-  primaryBtn: { backgroundColor: '#0E6CFF', borderRadius: 12 },
-  secondaryBtn: { backgroundColor: '#0B253B', borderRadius: 12 },
-
-  // Camera styles
+  secondaryBtn: {
+    backgroundColor: '#0B253B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  secondaryBtnText: { color: '#E6EEF8', fontWeight: '700' },
   cameraContainer: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
   cameraOverlay: {
     position: 'absolute',
     top: 16,
     left: 16,
-    zIndex: 10
+    zIndex: 10,
   },
   closeBtn: {
     width: 44,
@@ -526,7 +624,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   cameraControls: {
     flexDirection: 'row',
@@ -534,7 +632,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 20,
     backgroundColor: 'rgba(15, 27, 46, 0.95)',
-    paddingBottom: 24
+    paddingBottom: 24,
   },
   controlBtn: { alignItems: 'center' },
   controlLabel: { color: '#E6EEF8', fontSize: 12, fontWeight: '600', marginTop: 6 },
@@ -544,24 +642,24 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     backgroundColor: '#E6EEF8',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   captureInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#0A0F1A'
+    backgroundColor: '#0A0F1A',
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   permissionBtn: {
     paddingHorizontal: 24,
     paddingVertical: 12,
     backgroundColor: '#0E6CFF',
-    borderRadius: 10
-  }
+    borderRadius: 10,
+  },
 });
