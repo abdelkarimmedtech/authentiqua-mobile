@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomInput from '../../components/CustomInput';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getThemeColors } from '../../utils/themeColors';
-import { scanImage, scanPdf } from '../../services/scanService';
+import { scanImage } from '../../services/scanService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { getUserRole } from '../../utils/user';
@@ -164,6 +164,51 @@ export default function ScanScreen({ navigation, route }) {
     }
   };
 
+  const buildFinalResultPayload = (baseResult, uni, fileName, documentType, reference, uploadRes) => {
+    const final_orchestration = baseResult.final_orchestration;
+
+    if (!final_orchestration) {
+      return null;
+    }
+
+    const finalDecision = final_orchestration.final_decision;
+    const isAuthentic = finalDecision === "authentic";
+    const aiLabel = isAuthentic ? "REAL" : "FAKE";
+    const aiConfidence = final_orchestration.layout_authenticity_score ?? 0;
+    const hasRef = !!reference;
+    const finalLabel = hasRef ? "REAL" : aiLabel;
+    const confidence = hasRef ? Math.max(aiConfidence, 85) : aiConfidence;
+    const status = finalLabel === "REAL" ? "VERIFIED" : "REJECTED";
+
+    return {
+      finalLabel,
+      confidence,
+      status,
+      navigationPayload: {
+        result: {
+          label: finalLabel,
+          confidence,
+          modelVersion: baseResult.modelVersion,
+          notes: baseResult.notes,
+          finalDecision: baseResult.finalDecision,
+          isAuthentic: baseResult.isAuthentic,
+          final_orchestration: baseResult.final_orchestration,
+        },
+        documentId: uploadRes?.documentId || null,
+        meta: {
+          university: uni,
+          documentType,
+          fileName,
+          status,
+          staffName: reference?.staffName || null,
+          staffUniversity: reference?.university || null,
+          filename: baseResult.filename || fileName,
+        },
+        fullResponse: baseResult.rawResponse,
+      },
+    };
+  };
+
   const onUpload = async () => {
     if (!selectedFile?.uri) return Alert.alert('Please pick or take a photo first');
     if (role !== 'USER') {
@@ -182,106 +227,30 @@ export default function ScanScreen({ navigation, route }) {
       const fileName = selectedFile.name || getFileName(selectedFile.uri);
       const uid = user?.uid;
       const mimeType = getMimeType(selectedFile);
-      const fileType = isPdfFile(selectedFile) ? 'pdf' : 'image';
 
-      console.log('File type:', mimeType);
-      console.log('File name:', fileName);
+      const scanUri = selectedFile.uri;
+      const baseResult = await scanImage(scanUri, { documentType, university: uni });
 
-      if (fileType === 'pdf') {
-        console.log('PDF selected - sending to backend');
-        setStatusMessage('Scanning PDF...');
-
-        let pdfResult = null;
-        let pdfScanFailed = false;
-
-        try {
-          pdfResult = await scanPdf(selectedFile.uri, {
-            documentType,
-            university: uni,
-            fileName,
-          });
-        } catch (pdfError) {
-          pdfScanFailed = true;
-          console.error('[ScanScreen] PDF scanning failed:', pdfError?.message || pdfError);
-        }
-
-        const finalLabel = pdfResult?.label || 'PENDING';
-        const confidence = Number(pdfResult?.confidence || 0);
-        const status = pdfScanFailed ? 'PENDING' : finalLabel === 'REAL' ? 'VERIFIED' : 'REJECTED';
-        const uploadRes = await uploadDocument(uid, {
-          documentType,
-          fileName,
-          fileUri: selectedFile.uri,
-          status,
-          verificationNotes: pdfScanFailed
-            ? 'PDF scanning failed, saved for review.'
-            : pdfResult?.notes || 'PDF scanned by backend AI service.',
-          university: uni,
-          isReference: false,
-          metadata: {
-            mimeType,
-            scanSource: 'pdf',
-            storageDisabled: true,
-          },
-        });
-
-        await logActivity(uid, {
-          type: pdfScanFailed ? 'UPLOAD' : 'VERIFICATION',
-          status,
-          documentId: uploadRes?.documentId || null,
-          description: pdfScanFailed ? 'PDF scanning failed, saved for review' : 'PDF verification completed',
-          details: {
-            university: uni,
-            documentType,
-            fileName,
-            mimeType,
-            label: finalLabel,
-            confidence,
-            modelVersion: pdfResult?.modelVersion || null,
-          },
-        });
-
-        if (pdfScanFailed) {
-          Alert.alert('Saved for review', 'PDF scanning failed, saved for review.');
-          navigation.navigate('Documents');
-          return;
-        }
-
-        navigation.replace('Result', {
-          result: {
-            label: finalLabel,
-            confidence,
-            modelVersion: pdfResult?.modelVersion,
-            notes: pdfResult?.notes,
-          },
-          documentId: uploadRes?.documentId || null,
-          meta: {
-            university: uni,
-            documentType,
-            fileName,
-            status,
-          },
-        });
+      if (baseResult.error) {
+        Alert.alert("Verification Error", baseResult.error);
         return;
       }
 
-      const scanUri = selectedFile.uri;
+      console.log("VERIFY RAW RESPONSE:", JSON.stringify(baseResult.rawResponse, null, 2));
+      console.log("FINAL ORCHESTRATION:", baseResult.final_orchestration);
 
-      if (!scanUri) return;
-
-      const baseResult = await scanImage(scanUri, { documentType, university: uni });
       const refCheck = await hasReferenceDocument(uni, documentType);
       const hasRef = !!refCheck?.exists;
       const reference = refCheck?.reference || null;
-      const aiLabel = baseResult.label || 'FAKE';
-      const aiConfidence = Number(baseResult.confidence || 0);
-      const finalLabel = hasRef ? 'REAL' : aiLabel;
-      const confidence = hasRef ? Math.max(aiConfidence, 85) : aiConfidence;
-      const status = finalLabel === 'REAL' ? 'VERIFIED' : 'REJECTED';
-      const metadata = {
-        mimeType,
-        scanSource: 'image',
-      };
+
+      const resultData = buildFinalResultPayload(baseResult, uni, fileName, documentType, reference, null);
+
+      if (!resultData) {
+        Alert.alert("Verification Error", "Verification response received, but result data is missing.");
+        return;
+      }
+
+      const { finalLabel, confidence, status, navigationPayload } = resultData;
 
       const uploadRes = await uploadDocument(uid, {
         documentType,
@@ -290,13 +259,18 @@ export default function ScanScreen({ navigation, route }) {
         status,
         verificationNotes: hasRef
           ? 'Matched against official university reference document and verified by AI.'
-          : aiLabel === 'REAL'
+          : resultData.finalLabel === 'REAL'
           ? 'AI model identified the document as authentic. No official reference record found.'
           : 'AI model identified the document as fraudulent.',
         university: uni,
         isReference: false,
-        metadata,
+        metadata: {
+          mimeType,
+          scanSource: isPdfFile(selectedFile) ? 'pdf' : 'image',
+        },
       });
+
+      navigationPayload.documentId = uploadRes?.documentId || null;
 
       await logActivity(uid, {
         type: 'VERIFICATION',
@@ -308,26 +282,14 @@ export default function ScanScreen({ navigation, route }) {
           documentType,
           label: finalLabel,
           confidence,
-          aiLabel,
-          aiConfidence,
+          aiLabel: resultData.finalLabel === 'REAL' ? 'REAL' : 'FAKE',
+          aiConfidence: baseResult.final_orchestration?.layout_authenticity_score ?? 0,
           referenceId: reference?.id || null,
           referenceOwnerId: reference?.userId || null,
         },
       });
 
-      navigation.replace('Result', {
-        result: { label: finalLabel, confidence, modelVersion: baseResult.modelVersion, notes: baseResult.notes },
-        documentId: uploadRes?.documentId || null,
-        meta: {
-          university: uni,
-          documentType,
-          fileName,
-          status,
-          staffName: reference?.staffName || null,
-          staffUniversity: reference?.university || null,
-        },
-      });
-      Alert.alert('Success', 'Image scanned successfully');
+      navigation.replace("Result", navigationPayload);
     } catch (error) {
       console.error('[ScanScreen] Verification error:', error?.message || error);
       Alert.alert('Error', error?.message || 'Unable to process this document. Please try again.');
@@ -455,7 +417,7 @@ export default function ScanScreen({ navigation, route }) {
                 label="University (required)"
                 value={university}
                 onChangeText={setUniversity}
-                placeholder="e.g. Stanford University"
+                placeholder="e.g. MedTech University"
               />
               <Text style={styles.metaLabel}>Document type</Text>
               <View style={styles.typeRow}>
@@ -610,6 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: { color: '#E6EEF8', fontWeight: '700' },
+
   cameraContainer: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
   cameraOverlay: {

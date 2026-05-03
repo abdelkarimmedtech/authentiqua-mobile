@@ -9,16 +9,44 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function ResultScreen({ route, navigation }) {
   const { theme } = useContext(ThemeContext);
   const colors = getThemeColors(theme);
-  const { result, documentId, meta } = route.params || { result: { label: 'UNKNOWN', confidence: 0 }, documentId: null, meta: null };
+  const params = route.params || {};
+  const { result, documentId, meta, fullResponse } = params;
 
-  const isReal = result.label === 'REAL';
-  const iconName = isReal ? 'check-circle' : 'close-circle';
-  const primaryColor = isReal ? '#00FF99' : '#FF6B6B';
+  if (!result || !result.label) {
+    return (
+      <SafeAreaView style={dynamicStyles(colors).safeArea}>
+        <View style={dynamicStyles(colors).container}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={80} color="#FFB800" />
+          <Text style={[dynamicStyles(colors).resultLabel, { color: '#FFB800', marginTop: 24 }]}>No Result</Text>
+          <Text style={dynamicStyles(colors).resultConfidence}>
+            Verification response received, but result data is missing.
+          </Text>
+          <View style={dynamicStyles(colors).actions}>
+            <CustomButton title="Scan another" onPress={() => navigation.replace('Scan')} style={dynamicStyles(colors).primaryBtn} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const finalDecision = result.finalDecision || (result.label === 'REAL' ? 'authentic' : 'fake');
+  const isAuthentic = result.isAuthentic !== undefined ? result.isAuthentic : result.label === 'REAL';
+  const displayLabel = isAuthentic ? 'AUTHENTIC' : 'FAKE';
+  const displayStatus = isAuthentic ? 'ACCEPTED' : 'REJECTED';
+  const confidencePercent = result.confidence ?? 0;
+  const riskScore = result.final_orchestration?.orchestration_risk_score;
+
+  const iconName = isAuthentic ? 'check-circle' : 'close-circle';
+  const primaryColor = isAuthentic ? '#00FF99' : '#FF6B6B';
+
+  const verificationId = documentId || fullResponse?.filename || 'AUTH-XXXX';
+  const docType = result.final_orchestration?.document_type || meta?.documentType || 'Unknown';
+  const fileName = fullResponse?.filename || meta?.fileName || 'document';
 
   return (
     <SafeAreaView style={dynamicStyles(colors).safeArea}>
       <View style={dynamicStyles(colors).container}>
-        <View style={[dynamicStyles(colors).badge, { backgroundColor: isReal ? 'rgba(0, 255, 153, 0.1)' : 'rgba(255, 107, 107, 0.1)' }]}>
+        <View style={[dynamicStyles(colors).badge, { backgroundColor: isAuthentic ? 'rgba(0, 255, 153, 0.1)' : 'rgba(255, 107, 107, 0.1)' }]}>
           <MaterialCommunityIcons name={iconName} size={80} color={primaryColor} />
         </View>
 
@@ -26,28 +54,46 @@ export default function ResultScreen({ route, navigation }) {
         <Text style={dynamicStyles(colors).tagline}>TRUSTED VERIFICATION</Text>
 
         <View style={[dynamicStyles(colors).resultCard, { borderTopColor: primaryColor }]}>
-          <Text style={[dynamicStyles(colors).resultLabel, { color: primaryColor }]}>{result.label}</Text>
-          <Text style={dynamicStyles(colors).resultConfidence}>{result.confidence}% confidence</Text>
+          <Text style={[dynamicStyles(colors).resultLabel, { color: primaryColor }]}>{displayLabel}</Text>
+          <Text style={dynamicStyles(colors).resultConfidence}>{confidencePercent}% confidence</Text>
+          <Text style={[dynamicStyles(colors).resultConfidence, { marginTop: 4 }]}>{displayStatus}</Text>
         </View>
 
-        {meta ? (
-          <View style={dynamicStyles(colors).metaCard}>
-            <Text style={dynamicStyles(colors).metaTitle}>Scanned document</Text>
-            <Text style={dynamicStyles(colors).metaRow}>Type: <Text style={dynamicStyles(colors).metaValue}>{meta.documentType}</Text></Text>
+        <View style={dynamicStyles(colors).metaCard}>
+          <Text style={dynamicStyles(colors).metaTitle}>Scanned document</Text>
+          <Text style={dynamicStyles(colors).metaRow}>Type: <Text style={dynamicStyles(colors).metaValue}>{docType}</Text></Text>
+          <Text style={dynamicStyles(colors).metaRow}>File: <Text style={dynamicStyles(colors).metaValue}>{fileName}</Text></Text>
+          <Text style={dynamicStyles(colors).metaRow}>Status: <Text style={dynamicStyles(colors).metaValue}>{displayStatus}</Text></Text>
+          {meta?.university ? (
             <Text style={dynamicStyles(colors).metaRow}>University: <Text style={dynamicStyles(colors).metaValue}>{meta.university}</Text></Text>
-            <Text style={dynamicStyles(colors).metaRow}>File: <Text style={dynamicStyles(colors).metaValue}>{meta.fileName}</Text></Text>
-            <Text style={dynamicStyles(colors).metaRow}>Status: <Text style={dynamicStyles(colors).metaValue}>{meta.status}</Text></Text>
-          </View>
-        ) : null}
+          ) : null}
+          {riskScore !== undefined && riskScore !== null ? (
+            <Text style={dynamicStyles(colors).metaRow}>Risk Score: <Text style={dynamicStyles(colors).metaValue}>{riskScore}</Text></Text>
+          ) : null}
+        </View>
 
-        {(result.modelVersion || result.notes) ? (
+        {(result.final_orchestration) ? (
           <View style={dynamicStyles(colors).metaCard}>
-            <Text style={dynamicStyles(colors).metaTitle}>AI model details</Text>
-            {result.modelVersion ? (
-              <Text style={dynamicStyles(colors).metaRow}>Model: <Text style={dynamicStyles(colors).metaValue}>{result.modelVersion}</Text></Text>
+            <Text style={dynamicStyles(colors).metaTitle}>Evidence</Text>
+            {result.final_orchestration.has_signature !== undefined ? (
+              <Text style={dynamicStyles(colors).metaRow}>
+                Signature: <Text style={dynamicStyles(colors).metaValue}>
+                  {result.final_orchestration.has_signature ? 'Detected' : 'Not detected'}
+                  {result.final_orchestration.signature_confidence !== undefined
+                    ? ` (${Math.round(result.final_orchestration.signature_confidence * 100)}%)`
+                    : ''}
+                </Text>
+              </Text>
             ) : null}
-            {result.notes ? (
-              <Text style={dynamicStyles(colors).metaRow}>Notes: <Text style={dynamicStyles(colors).metaValue}>{result.notes}</Text></Text>
+            {result.final_orchestration.has_stamp !== undefined ? (
+              <Text style={dynamicStyles(colors).metaRow}>
+                Stamp: <Text style={dynamicStyles(colors).metaValue}>
+                  {result.final_orchestration.has_stamp ? 'Detected' : 'Not detected'}
+                  {result.final_orchestration.stamp_confidence !== undefined
+                    ? ` (${Math.round(result.final_orchestration.stamp_confidence * 100)}%)`
+                    : ''}
+                </Text>
+              </Text>
             ) : null}
           </View>
         ) : null}
@@ -57,10 +103,18 @@ export default function ResultScreen({ route, navigation }) {
             title="View Details"
             onPress={() =>
               navigation.navigate('VerificationResults', {
-                id: documentId || 'AUTH-XXXX',
-                status: result.label === 'REAL' ? 'Verified' : 'Rejected',
-                confidence: result.confidence,
-                meta: meta || null,
+                id: verificationId,
+                status: displayStatus,
+                confidence: confidencePercent,
+                meta: {
+                  ...meta,
+                  documentType: docType,
+                  fileName,
+                },
+                fullResponse,
+                final_orchestration: result.final_orchestration,
+                isAuthentic,
+                displayLabel,
               })
             }
             style={dynamicStyles(colors).primaryBtn}
@@ -91,5 +145,3 @@ const dynamicStyles = (colors) => StyleSheet.create({
   secondaryBtn: { backgroundColor: colors.cardBg, borderRadius: 12 },
   secondaryBtnText: { color: colors.text }
 });
-
-const styles = { safeArea: {}, container: {}, badge: {}, appName: {}, tagline: {}, resultCard: {}, resultLabel: {}, resultConfidence: {}, metaCard: {}, metaTitle: {}, metaRow: {}, metaValue: {}, actions: {}, primaryBtn: {}, secondaryBtn: {}, secondaryBtnText: {} };

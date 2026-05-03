@@ -52,7 +52,38 @@ export async function scanImage(fileUri, details = {}) {
     }
 
     const json = await response.json();
-    return normalizeScanResult(json, 'Verified by external AI service.');
+
+    console.log("SCAN RAW RESPONSE:", JSON.stringify(json, null, 2));
+    console.log("FINAL ORCHESTRATION:", json?.result?.final_orchestration);
+
+    const final_orchestration = json?.result?.final_orchestration;
+
+    if (!final_orchestration) {
+      console.warn("scanService: result.final_orchestration missing in response");
+      return {
+        label: "FAKE",
+        confidence: 0,
+        modelVersion: json?.modelVersion || "ai-unknown",
+        notes: json?.notes || null,
+        error: "Verification response received, but result data is missing.",
+        rawResponse: json,
+      };
+    }
+
+    const finalDecision = final_orchestration.final_decision;
+    const isAuthentic = finalDecision === "authentic";
+
+    return {
+      label: isAuthentic ? "REAL" : "FAKE",
+      confidence: final_orchestration.layout_authenticity_score ?? 0,
+      modelVersion: json?.modelVersion || "ai-unknown",
+      notes: json?.notes || null,
+      finalDecision,
+      isAuthentic,
+      filename: json?.filename || null,
+      final_orchestration,
+      rawResponse: json,
+    };
   } catch (error) {
     console.error('[scanImage] AI model integration failed:', error?.message || error);
     return fallbackScan();

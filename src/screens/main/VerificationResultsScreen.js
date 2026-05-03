@@ -15,17 +15,36 @@ import { generateCertificatePdf, saveCertificateToLocalStorage } from '../../uti
 
 export default function VerificationResultsScreen({ navigation, route }) {
   const [downloading, setDownloading] = useState(false);
-  const verificationId = route?.params?.id || 'AUTH-8829-XJ2';
-  const status = route?.params?.status || 'Verified';
-  const confidence = route?.params?.confidence || 98;
+
+  const final_orchestration = route?.params?.final_orchestration || null;
+  const isAuthentic = route?.params?.isAuthentic || false;
+  const displayLabel = route?.params?.displayLabel || (isAuthentic ? 'AUTHENTIC' : 'FAKE');
+  const displayStatus = route?.params?.status || (isAuthentic ? 'ACCEPTED' : 'REJECTED');
+  const confidence = final_orchestration?.layout_authenticity_score ?? route?.params?.confidence ?? 0;
+  const riskScore = final_orchestration?.orchestration_risk_score;
+  const docType = final_orchestration?.document_type || route?.params?.meta?.documentType || 'Unknown';
+  const fileName = route?.params?.fullResponse?.filename || route?.params?.meta?.fileName || 'document';
+  const verificationId = route?.params?.id || route?.params?.fullResponse?.filename || 'AUTH-XXXX';
   const meta = route?.params?.meta || null;
 
   const staffName = meta?.staffName || 'Verification Reviewer';
   const staffUniversity = meta?.staffUniversity || meta?.university || 'University';
-  const navParams = { id: verificationId, status, confidence, meta };
+
+  const hasSignature = final_orchestration?.has_signature;
+  const signatureConfidence = final_orchestration?.signature_confidence;
+  const hasStamp = final_orchestration?.has_stamp;
+  const stampConfidence = final_orchestration?.stamp_confidence;
+  const fusionReasons = final_orchestration?.fusion_reasons || [];
+  const layoutReasons = final_orchestration?.layout_reasons || [];
+
+  const statusIconColor = isAuthentic ? '#00C896' : '#FF6B6B';
+  const statusCircleBg = isAuthentic ? 'rgba(0,200,150,0.15)' : 'rgba(255,107,107,0.15)';
+  const statusIconName = isAuthentic ? 'check-circle' : 'close-circle';
+
+  const navParams = { id: verificationId, status: displayStatus, confidence, meta };
   const certificateParams = {
     verificationId,
-    status,
+    status: displayStatus,
     confidence,
     university: staffUniversity,
   };
@@ -58,6 +77,34 @@ export default function VerificationResultsScreen({ navigation, route }) {
     }
   };
 
+  if (!final_orchestration) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#071027" />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()}>
+            <MaterialCommunityIcons name="chevron-left" size={20} color="#E6EEF8" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Verification Details</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.errorState}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={64} color="#FFB800" />
+          <Text style={styles.errorTitle}>Result Data Missing</Text>
+          <Text style={styles.errorText}>
+            Verification response received, but result data is missing.
+          </Text>
+          <TouchableOpacity
+            style={styles.errorBackBtn}
+            onPress={() => navigation?.goBack()}
+          >
+            <Text style={styles.errorBackText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#071027" />
@@ -75,64 +122,118 @@ export default function VerificationResultsScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         <View style={styles.statusSection}>
-          <View style={styles.statusCircle}>
-            <View style={styles.statusInner}>
-              <MaterialCommunityIcons name="check-circle" size={32} color="#FFFFFF" />
+          <View style={[styles.statusCircle, { backgroundColor: statusCircleBg }]}>
+            <View style={[styles.statusInner, { backgroundColor: statusIconColor }]}>
+              <MaterialCommunityIcons name={statusIconName} size={32} color="#FFFFFF" />
             </View>
           </View>
           <Text style={styles.statusLabel}>STATUS</Text>
-          <Text style={styles.statusText}>{status}</Text>
+          <Text style={styles.statusText}>{displayStatus}</Text>
+          <Text style={[styles.statusDecision, { color: isAuthentic ? '#00FF99' : '#FF6B6B' }]}>
+            {displayLabel}
+          </Text>
           <Text style={styles.statusId}>ID: {verificationId}</Text>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Confidence Score</Text>
           <View style={styles.scoreContainer}>
-            <View style={styles.scoreRingOuter}>
+            <View style={[styles.scoreRingOuter, { borderColor: isAuthentic ? '#00C896' : '#FF6B6B' }]}>
               <View style={styles.scoreRingInner}>
-                <Text style={styles.scorePercent}>{confidence}%</Text>
+                <Text style={[styles.scorePercent, { color: isAuthentic ? '#00C896' : '#FF6B6B' }]}>{confidence}%</Text>
                 <Text style={styles.scoreLabel}>MATCH ACCURACY</Text>
               </View>
             </View>
           </View>
           <Text style={styles.scoreDescription}>
-            Match score between the uploaded document and the official reference from {staffUniversity}.
+            Document type: {docType}. File: {fileName}.
+            {riskScore !== undefined && riskScore !== null
+              ? ` Risk score: ${riskScore} (lower is safer).`
+              : ''}
           </Text>
         </View>
 
-        <View style={styles.feedbackCard}>
-          <View style={styles.feedbackHeader}>
-            <MaterialCommunityIcons name="school-outline" size={16} color="#0E6CFF" />
-            <Text style={styles.feedbackHeaderText}>University Feedback</Text>
+        {(layoutReasons.length > 0 || fusionReasons.length > 0) ? (
+          <View style={styles.feedbackCard}>
+            <View style={styles.feedbackHeader}>
+              <MaterialCommunityIcons name="information-outline" size={16} color="#0E6CFF" />
+              <Text style={styles.feedbackHeaderText}>Verification Analysis</Text>
+            </View>
+            {layoutReasons.length > 0 ? (
+              <View style={styles.reasonsSection}>
+                <Text style={styles.reasonsSectionTitle}>Layout Analysis</Text>
+                {layoutReasons.map((reason, index) => (
+                  <View key={`layout-${index}`} style={styles.reasonItem}>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={14}
+                      color="#5B7A9A"
+                    />
+                    <Text style={styles.reasonText}>{reason}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {fusionReasons.length > 0 ? (
+              <View style={styles.reasonsSection}>
+                <Text style={styles.reasonsSectionTitle}>Fusion Analysis</Text>
+                {fusionReasons.map((reason, index) => (
+                  <View key={`fusion-${index}`} style={styles.reasonItem}>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={14}
+                      color="#5B7A9A"
+                    />
+                    <Text style={styles.reasonText}>{reason}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.feedbackText}>
-            "Your document meets all enrollment criteria for the Fall 2024 Semester. The digital
-            signature is valid and cross-referenced with the registrar's database."
-          </Text>
-        </View>
+        ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>REVIEWER INFORMATION</Text>
-          <View style={styles.reviewerRow}>
-            <View style={styles.reviewerAvatar}>
-              <Text style={styles.reviewerAvatarText}>
-                {staffName
-                  .split(' ')
-                  .filter(Boolean)
-                  .map((p) => p[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </Text>
+          <Text style={styles.sectionLabel}>EVIDENCE</Text>
+          {hasSignature !== undefined ? (
+            <View style={styles.evidenceRow}>
+              <View style={styles.evidenceIcon}>
+                <MaterialCommunityIcons
+                  name={hasSignature ? 'pencil' : 'pencil-off'}
+                  size={20}
+                  color={hasSignature ? '#00C896' : '#FF6B6B'}
+                />
+              </View>
+              <View style={styles.evidenceInfo}>
+                <Text style={styles.evidenceLabel}>Signature</Text>
+                <Text style={styles.evidenceValue}>
+                  {hasSignature ? 'Detected' : 'Not detected'}
+                  {signatureConfidence !== undefined
+                    ? ` (${Math.round(signatureConfidence * 100)}% confidence)`
+                    : ''}
+                </Text>
+              </View>
             </View>
-            <View style={styles.reviewerInfo}>
-              <Text style={styles.reviewerName}>{staffName}</Text>
-              <Text style={styles.reviewerRole}>{staffUniversity}</Text>
+          ) : null}
+          {hasStamp !== undefined ? (
+            <View style={styles.evidenceRow}>
+              <View style={styles.evidenceIcon}>
+                <MaterialCommunityIcons
+                  name={hasStamp ? 'stamp' : 'stamp-off'}
+                  size={20}
+                  color={hasStamp ? '#00C896' : '#FF6B6B'}
+                />
+              </View>
+              <View style={styles.evidenceInfo}>
+                <Text style={styles.evidenceLabel}>Stamp</Text>
+                <Text style={styles.evidenceValue}>
+                  {hasStamp ? 'Detected' : 'Not detected'}
+                  {stampConfidence !== undefined
+                    ? ` (${Math.round(stampConfidence * 100)}% confidence)`
+                    : ''}
+                </Text>
+              </View>
             </View>
-            <View style={styles.verifiedBadge}>
-              <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />
-            </View>
-          </View>
+          ) : null}
         </View>
 
         <TouchableOpacity
@@ -175,31 +276,48 @@ const styles = StyleSheet.create({
   headerTitle:   { color: '#E6EEF8', fontSize: 18, fontWeight: '700' },
   menuBtn:       { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
 
+  errorState:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  errorTitle:    { color: '#FFB800', fontSize: 22, fontWeight: '800', marginTop: 16, marginBottom: 8 },
+  errorText:     { color: '#9AA7C0', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  errorBackBtn:  { paddingHorizontal: 32, paddingVertical: 14, backgroundColor: '#0E6CFF', borderRadius: 12 },
+  errorBackText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
 
   statusSection: { alignItems: 'center', paddingVertical: 28 },
-  statusCircle:  { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(0,200,150,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  statusInner:   { width: 70, height: 70, borderRadius: 35, backgroundColor: '#00C896', justifyContent: 'center', alignItems: 'center' },
+  statusCircle:  { width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  statusInner:   { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center' },
   statusLabel:   { color: '#0E6CFF', fontSize: 11, fontWeight: '700', letterSpacing: 2, marginBottom: 4 },
   statusText:    { color: '#E6EEF8', fontSize: 28, fontWeight: '800', marginBottom: 4 },
+  statusDecision:{ fontSize: 18, fontWeight: '700', marginBottom: 4 },
   statusId:      { color: '#5B7A9A', fontSize: 13 },
 
   card:          { backgroundColor: '#0A1F3A', borderRadius: 16, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#0E2748' },
   cardTitle:     { color: '#E6EEF8', fontSize: 15, fontWeight: '700', marginBottom: 16 },
 
   scoreContainer:  { alignItems: 'center', marginBottom: 12 },
-  scoreRingOuter:  { width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: '#0E6CFF', justifyContent: 'center', alignItems: 'center' },
+  scoreRingOuter:  { width: 120, height: 120, borderRadius: 60, borderWidth: 8, justifyContent: 'center', alignItems: 'center' },
   scoreRingInner:  { alignItems: 'center' },
-  scorePercent:    { color: '#0E6CFF', fontSize: 26, fontWeight: '800' },
+  scorePercent:    { fontSize: 26, fontWeight: '800' },
   scoreLabel:      { color: '#5B7A9A', fontSize: 9, fontWeight: '600', letterSpacing: 1 },
   scoreDescription:{ color: '#9AA7C0', fontSize: 13, textAlign: 'center', lineHeight: 20 },
 
   feedbackCard:       { backgroundColor: 'rgba(14,108,255,0.1)', borderRadius: 16, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(14,108,255,0.3)' },
-  feedbackHeader:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  feedbackHeader:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   feedbackHeaderText: { color: '#0E6CFF', fontSize: 13, fontWeight: '700' },
-  feedbackText:       { color: '#9AA7C0', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+
+  reasonsSection:    { marginTop: 8 },
+  reasonsSectionTitle: { color: '#E6EEF8', fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  reasonItem:        { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 6 },
+  reasonText:        { color: '#9AA7C0', fontSize: 13, lineHeight: 20, flex: 1 },
 
   sectionLabel:       { color: '#5B7A9A', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 14 },
+  evidenceRow:        { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  evidenceIcon:       { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0E2748', justifyContent: 'center', alignItems: 'center' },
+  evidenceInfo:       { flex: 1 },
+  evidenceLabel:      { color: '#E6EEF8', fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  evidenceValue:      { color: '#9AA7C0', fontSize: 13 },
+
   reviewerRow:        { flexDirection: 'row', alignItems: 'center', gap: 12 },
   reviewerAvatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0E2748', justifyContent: 'center', alignItems: 'center' },
   reviewerAvatarText: { color: '#E6EEF8', fontSize: 14, fontWeight: '700' },
