@@ -13,27 +13,103 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import { generateCertificatePdf, saveCertificateToLocalStorage } from '../../utils/certificate';
 
+const formatEvidenceKey = (key) =>
+  String(key)
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const normalizeEvidence = (data) => {
+  const source = data || {};
+
+  const rawEvidence =
+    source?.evidence ||
+    source?.final_orchestration ||
+    source?.result?.evidence ||
+    source?.result?.final_orchestration ||
+    source?.verificationResult?.evidence ||
+    source?.verificationResult?.final_orchestration ||
+    source?.analysis?.evidence ||
+    source?.analysis ||
+    source?.fullResponse ||
+    null;
+
+  if (Array.isArray(rawEvidence)) {
+    return rawEvidence.map((item) => {
+      if (typeof item === 'string') {
+        return { title: 'Evidence', description: item };
+      }
+      if (item && typeof item === 'object') {
+        return {
+          title: item.title || item.name || item.type || item.check || 'Evidence',
+          description:
+            item.description || item.message || item.status || item.result || JSON.stringify(item),
+        };
+      }
+      return { title: 'Evidence', description: String(item) };
+    });
+  }
+
+  if (typeof rawEvidence === 'string') {
+    return [{ title: 'Evidence', description: rawEvidence }];
+  }
+
+  if (rawEvidence && typeof rawEvidence === 'object') {
+    return Object.entries(rawEvidence)
+      .filter(([key, value]) => value !== undefined && value !== null && value !== '')
+      .map(([key, value]) => {
+        let description = value;
+
+        if (typeof value === 'object') {
+          description = JSON.stringify(value);
+        }
+
+        if (typeof value === 'number' && (key.toLowerCase().includes('score') || key.toLowerCase().includes('confidence'))) {
+          description = `${value}%`;
+        }
+
+        return {
+          title: formatEvidenceKey(key),
+          description: String(description),
+        };
+      });
+  }
+
+  return [];
+};
+
 export default function VerificationResultsScreen({ navigation, route }) {
   const [downloading, setDownloading] = useState(false);
 
-  const final_orchestration = route?.params?.final_orchestration || null;
-  const isAuthentic = route?.params?.isAuthentic || false;
-  const displayLabel = route?.params?.displayLabel || (isAuthentic ? 'AUTHENTIC' : 'FAKE');
-  const displayStatus = route?.params?.status || (isAuthentic ? 'ACCEPTED' : 'REJECTED');
-  const confidence = final_orchestration?.layout_authenticity_score ?? route?.params?.confidence ?? 0;
+  const routeParams = route?.params || {};
+  const final_orchestration =
+    routeParams.final_orchestration ||
+    routeParams.result?.final_orchestration ||
+    routeParams.fullResponse?.result?.final_orchestration ||
+    routeParams.fullResponse?.final_orchestration ||
+    null;
+  const isAuthentic =
+    routeParams?.isAuthentic ||
+    routeParams?.result?.isAuthentic ||
+    final_orchestration?.final_decision === 'authentic' ||
+    false;
+  const displayLabel = routeParams?.displayLabel || (isAuthentic ? 'AUTHENTIC' : 'FAKE');
+  const displayStatus = routeParams?.status || (isAuthentic ? 'ACCEPTED' : 'REJECTED');
+  const confidence = final_orchestration?.layout_authenticity_score ?? routeParams?.confidence ?? 0;
   const riskScore = final_orchestration?.orchestration_risk_score;
-  const docType = final_orchestration?.document_type || route?.params?.meta?.documentType || 'Unknown';
-  const fileName = route?.params?.fullResponse?.filename || route?.params?.meta?.fileName || 'document';
-  const verificationId = route?.params?.id || route?.params?.fullResponse?.filename || 'AUTH-XXXX';
-  const meta = route?.params?.meta || null;
+  const docType = final_orchestration?.document_type || routeParams?.meta?.documentType || 'Unknown';
+  const fileName = routeParams?.fullResponse?.filename || routeParams?.meta?.fileName || 'document';
+  const verificationId = routeParams?.id || routeParams?.fullResponse?.filename || 'AUTH-XXXX';
+  const meta = routeParams?.meta || null;
+  const evidence = normalizeEvidence(routeParams);
+
+  console.log('[VerificationDetails] route params:', routeParams);
+  console.log('[VerificationDetails] full document:', JSON.stringify(routeParams?.fullResponse || {}, null, 2));
+  console.log('[VerificationDetails] full result:', JSON.stringify(routeParams?.result || final_orchestration || {}, null, 2));
+  console.log('[VerificationDetails] evidence:', evidence);
 
   const staffName = meta?.staffName || 'Verification Reviewer';
   const staffUniversity = meta?.staffUniversity || meta?.university || 'University';
-
-  const hasSignature = final_orchestration?.has_signature;
-  const signatureConfidence = final_orchestration?.signature_confidence;
-  const hasStamp = final_orchestration?.has_stamp;
-  const stampConfidence = final_orchestration?.stamp_confidence;
   const fusionReasons = final_orchestration?.fusion_reasons || [];
   const layoutReasons = final_orchestration?.layout_reasons || [];
 
@@ -194,46 +270,35 @@ export default function VerificationResultsScreen({ navigation, route }) {
 
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>EVIDENCE</Text>
-          {hasSignature !== undefined ? (
-            <View style={styles.evidenceRow}>
-              <View style={styles.evidenceIcon}>
-                <MaterialCommunityIcons
-                  name={hasSignature ? 'pencil' : 'pencil-off'}
-                  size={20}
-                  color={hasSignature ? '#00C896' : '#FF6B6B'}
-                />
-              </View>
-              <View style={styles.evidenceInfo}>
-                <Text style={styles.evidenceLabel}>Signature</Text>
-                <Text style={styles.evidenceValue}>
-                  {hasSignature ? 'Detected' : 'Not detected'}
-                  {signatureConfidence !== undefined
-                    ? ` (${Math.round(signatureConfidence * 100)}% confidence)`
-                    : ''}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-          {hasStamp !== undefined ? (
-            <View style={styles.evidenceRow}>
-              <View style={styles.evidenceIcon}>
-                <MaterialCommunityIcons
-                  name={hasStamp ? 'stamp' : 'stamp-off'}
-                  size={20}
-                  color={hasStamp ? '#00C896' : '#FF6B6B'}
-                />
-              </View>
-              <View style={styles.evidenceInfo}>
-                <Text style={styles.evidenceLabel}>Stamp</Text>
-                <Text style={styles.evidenceValue}>
-                  {hasStamp ? 'Detected' : 'Not detected'}
-                  {stampConfidence !== undefined
-                    ? ` (${Math.round(stampConfidence * 100)}% confidence)`
-                    : ''}
-                </Text>
-              </View>
-            </View>
-          ) : null}
+          {evidence.length > 0 ? (
+            evidence.map((item, index) => {
+              const title = item?.title || item?.name || `Evidence ${index + 1}`;
+              const description = item?.description || item?.value || item?.message || item?.status || String(item);
+              const iconName = title.toLowerCase().includes('signature')
+                ? item?.title?.toLowerCase().includes('not') ? 'pencil-off' : 'pencil'
+                : title.toLowerCase().includes('stamp')
+                ? item?.title?.toLowerCase().includes('not') ? 'stamp-off' : 'stamp'
+                : 'check-circle-outline';
+
+              return (
+                <View key={`evidence-${index}`} style={styles.evidenceRow}>
+                  <View style={styles.evidenceIcon}>
+                    <MaterialCommunityIcons
+                      name={iconName}
+                      size={20}
+                      color={title.toLowerCase().includes('not') ? '#FF6B6B' : '#00C896'}
+                    />
+                  </View>
+                  <View style={styles.evidenceInfo}>
+                    <Text style={styles.evidenceLabel}>{title}</Text>
+                    <Text style={styles.evidenceValue}>{description}</Text>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={[styles.evidenceValue, { marginTop: 10 }]}>No detailed evidence was returned by the verification engine.</Text>
+          )}
         </View>
 
         <TouchableOpacity

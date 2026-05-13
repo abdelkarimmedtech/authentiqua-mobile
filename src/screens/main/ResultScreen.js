@@ -72,32 +72,6 @@ export default function ResultScreen({ route, navigation }) {
           ) : null}
         </View>
 
-        {(result.final_orchestration) ? (
-          <View style={dynamicStyles(colors).metaCard}>
-            <Text style={dynamicStyles(colors).metaTitle}>Evidence</Text>
-            {result.final_orchestration.has_signature !== undefined ? (
-              <Text style={dynamicStyles(colors).metaRow}>
-                Signature: <Text style={dynamicStyles(colors).metaValue}>
-                  {result.final_orchestration.has_signature ? 'Detected' : 'Not detected'}
-                  {result.final_orchestration.signature_confidence !== undefined
-                    ? ` (${Math.round(result.final_orchestration.signature_confidence * 100)}%)`
-                    : ''}
-                </Text>
-              </Text>
-            ) : null}
-            {result.final_orchestration.has_stamp !== undefined ? (
-              <Text style={dynamicStyles(colors).metaRow}>
-                Stamp: <Text style={dynamicStyles(colors).metaValue}>
-                  {result.final_orchestration.has_stamp ? 'Detected' : 'Not detected'}
-                  {result.final_orchestration.stamp_confidence !== undefined
-                    ? ` (${Math.round(result.final_orchestration.stamp_confidence * 100)}%)`
-                    : ''}
-                </Text>
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-
         <View style={dynamicStyles(colors).actions}>
           <CustomButton
             title="View Details"
@@ -113,6 +87,7 @@ export default function ResultScreen({ route, navigation }) {
                 },
                 fullResponse,
                 final_orchestration: result.final_orchestration,
+                evidence: result.final_orchestration,
                 isAuthentic,
                 displayLabel,
               })

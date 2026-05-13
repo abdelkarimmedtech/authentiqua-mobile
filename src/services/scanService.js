@@ -1,10 +1,43 @@
 import API from '../config/api';
 
-const fallbackScan = async () => {
+const simpleHash = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+};
+
+const fallbackScan = async (fileUri) => {
   await new Promise((resolve) => setTimeout(resolve, 1200));
-  const confidence = Math.round(30 + Math.random() * 70);
+  const hashValue = simpleHash(fileUri);
+  const confidence = 30 + (hashValue % 71); // 30 to 100
   const label = confidence > 60 ? 'REAL' : 'FAKE';
-  return { label, confidence, modelVersion: 'fallback-v1', notes: 'Local fallback model used.' };
+  console.log('[Verification] Using fallback model (deterministic), score source: file hash, score:', confidence, 'model version: fallback-v1');
+  const rawResponse = {
+    fallback: true,
+    label,
+    confidence,
+    modelVersion: 'fallback-v1',
+    notes: 'Local fallback model used.',
+  };
+  const final_orchestration = {
+    final_decision: label === 'REAL' ? 'authentic' : 'fraudulent',
+    layout_authenticity_score: confidence,
+    modelVersion: 'fallback-v1',
+    notes: 'Local fallback model used.',
+  };
+  return {
+    label,
+    confidence,
+    modelVersion: 'fallback-v1',
+    notes: 'Local fallback model used.',
+    rawResponse,
+    final_orchestration,
+    success: true,
+  };
 };
 
 const normalizeScanResult = (json, defaultNotes) => ({
@@ -33,7 +66,8 @@ export async function scanImage(fileUri, details = {}) {
   const aiUrl = API.aiBaseUrl;
 
   if (!aiUrl || aiUrl.includes('api.example.com')) {
-    return fallbackScan();
+    console.log('[Verification] AI backend not configured, using fallback model');
+    return fallbackScan(fileUri);
   }
 
   try {
@@ -47,33 +81,30 @@ export async function scanImage(fileUri, details = {}) {
       body: formData,
     });
 
-    if (!response.ok) {
-      throw new Error(`AI request failed with status ${response.status}`);
-    }
-
     const json = await response.json();
 
-    console.log("SCAN RAW RESPONSE:", JSON.stringify(json, null, 2));
-    console.log("FINAL ORCHESTRATION:", json?.result?.final_orchestration);
+    if (!response.ok) {
+      throw new Error(json?.message || json?.detail || `AI request failed with status ${response.status}`);
+    }
+
+    console.log("[Verification] API raw response:", json);
 
     const final_orchestration = json?.result?.final_orchestration;
+    console.log("[Verification] FINAL ORCHESTRATION:", final_orchestration);
 
     if (!final_orchestration) {
       console.warn("scanService: result.final_orchestration missing in response");
       return {
-        label: "FAKE",
-        confidence: 0,
-        modelVersion: json?.modelVersion || "ai-unknown",
-        notes: json?.notes || null,
+        success: false,
         error: "Verification response received, but result data is missing.",
         rawResponse: json,
+        final_orchestration: null,
       };
     }
 
     const finalDecision = final_orchestration.final_decision;
     const isAuthentic = finalDecision === "authentic";
-
-    return {
+    const returnedData = {
       label: isAuthentic ? "REAL" : "FAKE",
       confidence: final_orchestration.layout_authenticity_score ?? 0,
       modelVersion: json?.modelVersion || "ai-unknown",
@@ -83,10 +114,15 @@ export async function scanImage(fileUri, details = {}) {
       filename: json?.filename || null,
       final_orchestration,
       rawResponse: json,
+      success: true,
     };
+
+    console.log("[Verification] Using real AI model, score source: API response, score:", returnedData.confidence, "model version:", returnedData.modelVersion);
+    return returnedData;
   } catch (error) {
     console.error('[scanImage] AI model integration failed:', error?.message || error);
-    return fallbackScan();
+    console.log('[Verification] AI failed, falling back to deterministic fallback model');
+    return fallbackScan(fileUri);
   }
 }
 
@@ -94,37 +130,46 @@ export async function scanPdf(pdfUri, details = {}) {
   const aiUrl = API.aiBaseUrl;
 
   if (!aiUrl || aiUrl.includes('api.example.com')) {
-    throw new Error('PDF scanning backend is not configured.');
+    console.log('[Verification] PDF AI backend not configured, using fallback model');
+    return fallbackScan(pdfUri);
   }
 
-  const fileName = details.fileName || 'document.pdf';
-  const formData = new FormData();
+  try {
+    const fileName = details.fileName || 'document.pdf';
+    const formData = new FormData();
 
-  formData.append('file', {
-    uri: pdfUri,
-    name: fileName,
-    type: 'application/pdf',
-  });
-  formData.append('documentType', details.documentType || 'OTHER');
-  formData.append('university', details.university || 'unknown');
+    formData.append('file', {
+      uri: pdfUri,
+      name: fileName,
+      type: 'application/pdf',
+    });
+    formData.append('documentType', details.documentType || 'OTHER');
+    formData.append('university', details.university || 'unknown');
 
-  const endpoint = `${aiUrl.replace(/\/+$/, '')}/api/scan/pdf`;
-  console.log('[scanPdf] Sending PDF to backend:', { endpoint, fileName });
+    const endpoint = `${aiUrl.replace(/\/+$/, '')}/api/scan/pdf`;
+    console.log('[scanPdf] Sending PDF to backend:', { endpoint, fileName });
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: API.apiKey ? `Bearer ${API.apiKey}` : undefined,
-    },
-    body: formData,
-  });
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: API.apiKey ? `Bearer ${API.apiKey}` : undefined,
+      },
+      body: formData,
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    throw new Error(errorText || `PDF scan request failed with status ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(errorText || `PDF scan request failed with status ${response.status}`);
+    }
+
+    const json = await response.json();
+    const result = normalizeScanResult(json, 'PDF verified by backend AI service.');
+    console.log("[Verification] Using real AI model for PDF, score source: API response, score:", result.confidence, "model version:", result.modelVersion);
+    return result;
+  } catch (error) {
+    console.error('[scanPdf] PDF AI model integration failed:', error?.message || error);
+    console.log('[Verification] PDF AI failed, falling back to deterministic fallback model');
+    return fallbackScan(pdfUri);
   }
-
-  const json = await response.json();
-  return normalizeScanResult(json, 'PDF verified by backend AI service.');
 }

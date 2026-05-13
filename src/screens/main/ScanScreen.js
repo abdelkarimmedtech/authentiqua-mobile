@@ -231,13 +231,21 @@ export default function ScanScreen({ navigation, route }) {
       const scanUri = selectedFile.uri;
       const baseResult = await scanImage(scanUri, { documentType, university: uni });
 
-      if (baseResult.error) {
-        Alert.alert("Verification Error", baseResult.error);
+      if (!baseResult || baseResult.success === false) {
+        const message = baseResult?.error || 'Verification failed: no response received from verification service.';
+        console.error('[ScanScreen] Verification failed:', message, baseResult);
+        Alert.alert('Verification failed', message);
         return;
       }
 
-      console.log("VERIFY RAW RESPONSE:", JSON.stringify(baseResult.rawResponse, null, 2));
-      console.log("FINAL ORCHESTRATION:", baseResult.final_orchestration);
+      if (!baseResult.rawResponse || !baseResult.final_orchestration) {
+        console.error('[ScanScreen] Verification response incomplete:', baseResult);
+        Alert.alert('Verification failed', 'Verification failed: no response received from verification service.');
+        return;
+      }
+
+      console.log('[Verification] API raw response:', baseResult.rawResponse);
+      console.log('[Verification] Returned data:', baseResult);
 
       const refCheck = await hasReferenceDocument(uni, documentType);
       const hasRef = !!refCheck?.exists;
@@ -264,6 +272,13 @@ export default function ScanScreen({ navigation, route }) {
           : 'AI model identified the document as fraudulent.',
         university: uni,
         isReference: false,
+        evidence: baseResult.final_orchestration || null,
+        final_orchestration: baseResult.final_orchestration || null,
+        signatureDetected: baseResult.final_orchestration?.has_signature ?? baseResult.final_orchestration?.signatureDetected ?? null,
+        signatureConfidence: baseResult.final_orchestration?.signature_confidence ?? baseResult.final_orchestration?.signatureConfidence ?? null,
+        stampDetected: baseResult.final_orchestration?.has_stamp ?? baseResult.final_orchestration?.stampDetected ?? null,
+        stampConfidence: baseResult.final_orchestration?.stamp_confidence ?? baseResult.final_orchestration?.stampConfidence ?? null,
+        riskScore: baseResult.final_orchestration?.orchestration_risk_score ?? null,
         metadata: {
           mimeType,
           scanSource: isPdfFile(selectedFile) ? 'pdf' : 'image',

@@ -6,6 +6,7 @@ const fallbackVerifyImageBuffer = async (imageBuffer) => {
   const confidence = 55 + (sum % 41);
   const label = confidence >= 70 ? 'REAL' : 'FAKE';
 
+  console.log('[Backend Verification] Using fallback model (deterministic), score source: buffer hash, score:', confidence, 'model version: backend-fallback-v1');
   return {
     label,
     confidence,
@@ -46,6 +47,7 @@ const verifyImageBuffer = async (imageBuffer, details = {}) => {
   }
 
   const json = await response.json();
+  console.log('[Backend Verification] Using real AI model, score source: API response, score:', json.confidence || 0, 'model version:', json.modelVersion || 'backend-ai-v1');
   return {
     label: json.label || 'FAKE',
     confidence: Number(json.confidence) || 0,
