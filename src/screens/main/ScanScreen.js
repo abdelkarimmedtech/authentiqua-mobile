@@ -99,6 +99,7 @@ export default function ScanScreen({ navigation, route }) {
         uri: asset.uri,
         name: asset.name || getFileName(asset.uri),
         mimeType: asset.mimeType || getMimeType(asset),
+        size: asset.size || 0,
       };
 
       if (!file.mimeType.startsWith('image/') && file.mimeType !== 'application/pdf') {
@@ -108,6 +109,7 @@ export default function ScanScreen({ navigation, route }) {
 
       console.log('[ScanScreen] File selected:', {
         name: file.name,
+        size: file.size,
         mimeType: file.mimeType,
         uri: file.uri,
       });
@@ -227,9 +229,16 @@ export default function ScanScreen({ navigation, route }) {
       const fileName = selectedFile.name || getFileName(selectedFile.uri);
       const uid = user?.uid;
       const mimeType = getMimeType(selectedFile);
+      const fileSize = selectedFile.size || 0;
 
       const scanUri = selectedFile.uri;
-      const baseResult = await scanImage(scanUri, { documentType, university: uni });
+      const baseResult = await scanImage(scanUri, { 
+        documentType, 
+        university: uni,
+        fileName,
+        fileSize,
+        fileMimeType: mimeType,
+      });
 
       if (!baseResult || baseResult.success === false) {
         const message = baseResult?.error || 'Verification failed: no response received from verification service.';

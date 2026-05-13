@@ -10,12 +10,24 @@ const simpleHash = (str) => {
   return Math.abs(hash);
 };
 
-const fallbackScan = async (fileUri) => {
+const fallbackScan = async (fileUri, details = {}) => {
   await new Promise((resolve) => setTimeout(resolve, 1200));
-  const hashValue = simpleHash(fileUri);
+  
+  // Use stable file metadata for hash input instead of temporary URI
+  const { fileName = '', fileSize = 0, fileMimeType = '' } = details;
+  const stableHashInput = fileName + fileSize + fileMimeType;
+  
+  console.log('[Verification] Fallback scoring details:', {
+    fileName,
+    fileSize,
+    fileMimeType,
+    stableHashInput,
+  });
+  
+  const hashValue = simpleHash(stableHashInput);
   const confidence = 30 + (hashValue % 71); // 30 to 100
   const label = confidence > 60 ? 'REAL' : 'FAKE';
-  console.log('[Verification] Using fallback model (deterministic), score source: file hash, score:', confidence, 'model version: fallback-v1');
+  console.log('[Verification] Using fallback model (deterministic), score source: stable file metadata hash, score:', confidence, 'model version: fallback-v1');
   const rawResponse = {
     fallback: true,
     label,
@@ -67,7 +79,7 @@ export async function scanImage(fileUri, details = {}) {
 
   if (!aiUrl || aiUrl.includes('api.example.com')) {
     console.log('[Verification] AI backend not configured, using fallback model');
-    return fallbackScan(fileUri);
+    return fallbackScan(fileUri, details);
   }
 
   try {
@@ -122,7 +134,7 @@ export async function scanImage(fileUri, details = {}) {
   } catch (error) {
     console.error('[scanImage] AI model integration failed:', error?.message || error);
     console.log('[Verification] AI failed, falling back to deterministic fallback model');
-    return fallbackScan(fileUri);
+    return fallbackScan(fileUri, details);
   }
 }
 
@@ -131,7 +143,7 @@ export async function scanPdf(pdfUri, details = {}) {
 
   if (!aiUrl || aiUrl.includes('api.example.com')) {
     console.log('[Verification] PDF AI backend not configured, using fallback model');
-    return fallbackScan(pdfUri);
+    return fallbackScan(pdfUri, details);
   }
 
   try {
@@ -170,6 +182,6 @@ export async function scanPdf(pdfUri, details = {}) {
   } catch (error) {
     console.error('[scanPdf] PDF AI model integration failed:', error?.message || error);
     console.log('[Verification] PDF AI failed, falling back to deterministic fallback model');
-    return fallbackScan(pdfUri);
+    return fallbackScan(pdfUri, details);
   }
 }
